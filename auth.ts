@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
-import clientPromise from "@/lib/mongodb";
+import { getClientPromise } from "@/lib/mongodb";
 import { authConfig } from "@/auth.config";
 
 /**
@@ -10,7 +10,7 @@ import { authConfig } from "@/auth.config";
  */
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
-  adapter: MongoDBAdapter(clientPromise, {
+  adapter: MongoDBAdapter(getClientPromise, {
     // The Gen-Ai database already holds a "users" collection from an earlier
     // app with a different schema. Namespace the Auth.js collections so the
     // adapter never writes into it.
