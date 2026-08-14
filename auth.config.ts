@@ -9,16 +9,26 @@ import Google from "next-auth/providers/google";
  * lives here; the database adapter is added in auth.ts, which only runs in
  * Node.js route handlers and Server Components.
  */
-// Every Vercel deployment also gets a unique hostname
-// (strategy-k0bwi5vi3-....vercel.app) that changes on each push. If Auth.js
-// derives the OAuth callback from that host, Google rejects it as an
-// unregistered redirect_uri, because only the stable domain can realistically be
-// whitelisted in the Cloud Console. VERCEL_PROJECT_PRODUCTION_URL is injected by
-// Vercel on every deployment and always holds the stable production hostname, so
-// pin AUTH_URL to it unless one was configured explicitly. Undefined locally,
-// where Auth.js correctly falls back to the request host.
-if (!process.env.AUTH_URL && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-  process.env.AUTH_URL = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+/**
+ * The one origin Google will accept as a redirect target.
+ *
+ * Auth.js derives the OAuth redirect_uri from the incoming request host unless
+ * AUTH_URL is set. Every Vercel deployment answers on a unique per-push hostname
+ * (strategy-k0bwi5vi3-....vercel.app) alongside the stable domain, and only the
+ * stable one is registered in the Google Cloud Console — so a sign-in started
+ * from a deployment-specific URL dies with redirect_uri_mismatch.
+ *
+ * This is written out rather than read from VERCEL_PROJECT_PRODUCTION_URL
+ * because that variable only exists when the project has "Automatically expose
+ * System Environment Variables" enabled; relying on it makes the fix silently
+ * depend on a dashboard toggle. Set AUTH_URL to override, e.g. when a custom
+ * domain replaces this one — then register that domain with Google too.
+ */
+const PRODUCTION_ORIGIN = "https://strategy-ai-lac.vercel.app";
+
+// Left alone in development so `next dev` keeps signing in against localhost.
+if (!process.env.AUTH_URL && process.env.NODE_ENV === "production") {
+  process.env.AUTH_URL = PRODUCTION_ORIGIN;
 }
 
 export const authConfig = {
