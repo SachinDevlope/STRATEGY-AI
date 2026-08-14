@@ -14,6 +14,11 @@ export const authConfig = {
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      // Someone who signed up with a password and later clicks "Continue with
+      // Google" on the same address should land in the same account instead of
+      // hitting OAuthAccountNotLinked. Safe here only because Google returns a
+      // verified email — do not copy this onto a provider that does not.
+      allowDangerousEmailAccountLinking: true,
     }),
   ],
   pages: {

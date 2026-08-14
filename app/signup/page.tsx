@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import AuthShell from "@/components/AuthShell";
+import CredentialsForm from "@/components/CredentialsForm";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
+import OrDivider from "@/components/OrDivider";
+import { MIN_PASSWORD_LENGTH } from "@/lib/users";
+import { signUpWithPassword } from "./actions";
 
 export const metadata: Metadata = {
   title: "Sign Up — Strategy-AI",
@@ -28,10 +32,15 @@ export default async function SignupPage() {
       }
     >
       <div className="flex flex-col gap-4">
+        <CredentialsForm
+          mode="signup"
+          action={signUpWithPassword}
+          minPasswordLength={MIN_PASSWORD_LENGTH}
+        />
+
+        <OrDivider />
+
         <GoogleSignInButton label="Sign up with Google" />
-        <p className="text-body-sm text-on-surface-variant text-center">
-          No credit card. No password. One click and you&apos;re in.
-        </p>
       </div>
     </AuthShell>
   );

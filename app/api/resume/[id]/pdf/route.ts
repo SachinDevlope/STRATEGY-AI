@@ -1,6 +1,8 @@
 import { renderToBuffer } from "@react-pdf/renderer";
-import { auth } from "@/auth";
 import { putPdf, pdfPathname } from "@/lib/blob";
+import { notFound, unauthorized } from "@/lib/http";
+import { pdfHeaders } from "@/lib/pdf-response";
+import { currentUserId } from "@/lib/session";
 import { resumeDocument } from "@/lib/pdf/ResumeDocument";
 import { getResume } from "@/lib/resume-store";
 
@@ -17,15 +19,14 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) return new Response("Unauthorized", { status: 401 });
+  const userId = await currentUserId();
+  if (!userId) return unauthorized();
 
   const { id } = await params;
   // getResume() filters on userId, so a valid id belonging to someone else is
   // indistinguishable from one that does not exist.
   const stored = await getResume(userId, id);
-  if (!stored) return new Response("Not found", { status: 404 });
+  if (!stored) return notFound();
 
   const buffer = await renderToBuffer(resumeDocument(stored.data));
 
@@ -38,17 +39,9 @@ export async function GET(
     console.error("Failed to persist resume PDF to Blob:", error);
   }
 
-  const disposition = new URL(request.url).searchParams.get("download") === "1"
-    ? "attachment"
-    : "inline";
-
   return new Response(new Uint8Array(buffer), {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `${disposition}; filename="${fileName(stored.data.contact.fullName)}"`,
+    headers: pdfHeaders(request, fileName(stored.data.contact.fullName), {
       "Content-Length": String(buffer.byteLength),
-      // Private document — never let a shared cache hold a copy.
-      "Cache-Control": "private, no-store",
-    },
+    }),
   });
 }

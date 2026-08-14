@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Hanken_Grotesk } from "next/font/google";
+import SiteLoader from "@/components/SiteLoader";
 import "./globals.css";
 
 const inter = Inter({
@@ -53,6 +54,12 @@ export default function RootLayout({
           aria-hidden="true"
         />
         {children}
+        {/* Last child so it paints over everything until the page is ready. */}
+        <SiteLoader />
+        {/* Without JS nothing would ever take the boot screen down. */}
+        <noscript>
+          <style>{`[data-site-loader]{display:none!important}`}</style>
+        </noscript>
       </body>
     </html>
   );

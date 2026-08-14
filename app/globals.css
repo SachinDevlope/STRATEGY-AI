@@ -19,6 +19,18 @@
   body {
     background-color: transparent;
   }
+
+  /* One type system across every page: headings are the display grotesk,
+     everything else inherits Inter from <body>. Utilities still win, so a
+     heading that opts into font-label-caps (mono) keeps it. */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display), "Hanken Grotesk", sans-serif;
+  }
 }
 
 @layer components {
@@ -54,6 +66,18 @@
     border: 1px solid rgba(132, 148, 149, 0.2);
   }
 
+  /* Cyan halo for the one panel that carries the headline number. */
+  .cyber-glow {
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
+  }
+
+  /* The match-score ring animates from empty on mount. */
+  .progress-ring__circle {
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+    animation: ring-fill 1s ease-in-out forwards;
+  }
+
   .glass-panel-glow {
     transition: border-color 0.3s ease, box-shadow 0.3s ease,
       transform 0.3s ease;
@@ -66,6 +90,67 @@
 
   .btn-glow:hover {
     box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+  }
+
+  /* Loading screen ---------------------------------------------------- */
+
+  /* Own keyframe, not Tailwind's `spin` — that one is only emitted when an
+     `animate-spin` utility appears in the markup, which it does not here. */
+  .animate-spin-slow {
+    animation: spin-slow 3s linear infinite;
+  }
+
+  .glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  /* Cyan sweep across the top edge of the loading card. */
+  .loading-sweep::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto auto 0;
+    height: 2px;
+    width: 40%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(0, 240, 255, 0.9),
+      transparent
+    );
+    animation: loading-sweep 1.8s ease-in-out infinite;
+  }
+
+  .loading-bar-indeterminate {
+    width: 40%;
+    animation: loading-sweep 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+  }
+}
+
+@keyframes loading-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
   }
 }
 
@@ -126,6 +211,17 @@
   }
 }
 
+/* Sweeps the ring from empty to the score the page passed in as
+   --ring-offset, so the number and the arc land together. */
+@keyframes ring-fill {
+  from {
+    stroke-dashoffset: 339.292;
+  }
+  to {
+    stroke-dashoffset: var(--ring-offset);
+  }
+}
+
 @keyframes marquee-scroll {
   from {
     transform: translateX(0);
@@ -141,5 +237,28 @@
   }
   .marquee {
     overflow-x: auto;
+  }
+  /* The spinner still turns — it is the only signal that work is running —
+     but the glow, the sweep and the pulse dot stop. */
+  .animate-spin-slow {
+    animation-duration: 6s;
+  }
+  .glow-pulse {
+    animation: none;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+  }
+  .loading-sweep::before {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+  .loading-bar-indeterminate {
+    animation: none;
+    width: 100%;
+    opacity: 0.6;
+  }
+  .progress-ring__circle {
+    animation: none;
+    stroke-dashoffset: var(--ring-offset);
   }
 }

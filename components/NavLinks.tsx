@@ -3,13 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { SECTION_LINKS } from "@/lib/nav";
 
-const LINKS = [
-  { href: "/#resume", section: "resume", label: "Resume Builder" },
-  { href: "/#features", section: "features", label: "AI Interviewer" },
-  { href: "/#star", section: "star", label: "STAR Method" },
-  { href: "/#stories", section: "stories", label: "Success Stories" },
-];
+const LINKS = SECTION_LINKS;
 
 const BASE =
   "h-20 flex items-center px-2 hover:bg-primary-container/5 rounded-lg transition-all duration-200";

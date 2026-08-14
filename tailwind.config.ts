@@ -89,6 +89,7 @@ const config: Config = {
         mono: ["var(--font-mono)", "JetBrains Mono", "monospace"],
         // Uppercase micro-labels are tabular mono, like the reference.
         "label-caps": ["var(--font-mono)", "JetBrains Mono", "monospace"],
+        "data-tabular": ["var(--font-mono)", "JetBrains Mono", "monospace"],
       },
       fontSize: {
         "body-sm": ["14px", { lineHeight: "20px", fontWeight: "400" }],

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Logo from "@/components/Logo";
 
 const COLUMNS = [
   {
@@ -25,18 +26,10 @@ export default function Footer() {
     <footer className="bg-surface-container-lowest w-full border-t border-white/5">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-12 px-margin-mobile md:px-margin-desktop py-12 max-w-container-max mx-auto">
         <div className="flex flex-col gap-4 col-span-1 md:col-span-2">
-          <Link
-            href="/"
-            className="font-display text-headline-lg font-bold text-on-surface flex items-center gap-2 w-fit"
-          >
-            <span
-              className="material-symbols-outlined text-primary-container text-[24px]"
-              aria-hidden="true"
-            >
-              document_scanner
-            </span>
-            Strategy-AI
-          </Link>
+          <Logo
+            className="font-display text-headline-lg font-bold text-on-surface"
+            iconClassName="text-[24px]"
+          />
           <p className="text-body-sm text-on-surface-variant">
             © {new Date().getFullYear()} Strategy-AI. All rights reserved.
             Precision-grade career tools for ambitious professionals.

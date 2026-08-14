@@ -25,11 +25,6 @@ export async function putPdf(pathname: string, body: PutBody) {
   });
 }
 
-/** Streams a stored PDF back. Caller is responsible for authorizing the read. */
-export async function getPdf(pathname: string) {
-  return get(pathname, { access: ACCESS });
-}
-
 /** Metadata only (size, contentType, uploadedAt) — no body transfer. */
 export async function headPdf(pathname: string) {
   return head(pathname);
@@ -37,4 +32,20 @@ export async function headPdf(pathname: string) {
 
 export async function deletePdf(pathname: string) {
   return del(pathname);
+}
+
+/**
+ * Uploaded resumes use the same private store as generated PDFs: the browser
+ * writes them directly with a short-lived client token, and every read after
+ * that goes through a route handler that checks the session first.
+ */
+export async function getUploadedPdfBytes(pathname: string): Promise<Uint8Array | null> {
+  const result = await get(pathname, { access: ACCESS });
+  if (!result || result.statusCode !== 200) return null;
+  return new Uint8Array(await new Response(result.stream).arrayBuffer());
+}
+
+/** Streams a stored upload back. Caller is responsible for authorizing the read. */
+export async function getUploadedPdf(pathname: string) {
+  return get(pathname, { access: ACCESS });
 }

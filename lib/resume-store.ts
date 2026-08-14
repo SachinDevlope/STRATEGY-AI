@@ -1,6 +1,6 @@
 import { ObjectId, type Collection } from "mongodb";
 import { getDb } from "@/lib/mongodb";
-import type { Answers, Resume } from "@/lib/resume";
+import type { Answers, Resume, Tailoring } from "@/lib/resume";
 
 /**
  * The in-progress wizard. One draft per user — starting a new resume overwrites
@@ -9,6 +9,12 @@ import type { Answers, Resume } from "@/lib/resume";
 export type ResumeDraft = {
   _id: string;
   answers: Answers;
+  /**
+   * The job description the resume is being aimed at. Kept beside the answers
+   * rather than inside them: it is not something the user knows about
+   * themselves, and it is replaced wholesale each time they target a new role.
+   */
+  jobDescription?: string;
   step: number;
   updatedAt: Date;
 };
@@ -18,6 +24,8 @@ export type StoredResume = {
   _id: ObjectId;
   userId: string;
   data: Resume;
+  /** Present only when the resume was generated against a job description. */
+  tailoring?: Tailoring;
   createdAt: Date;
 };
 
@@ -40,12 +48,17 @@ export async function getDraft(userId: string): Promise<ResumeDraft | null> {
  * of text fields, so a full replace is cheaper than diffing and removes any
  * chance of the client and server disagreeing about which step is current.
  */
-export async function saveDraft(userId: string, answers: Answers, step: number) {
+export async function saveDraft(
+  userId: string,
+  answers: Answers,
+  step: number,
+  jobDescription = ""
+) {
   await (
     await drafts()
   ).updateOne(
     { _id: userId },
-    { $set: { answers, step, updatedAt: new Date() } },
+    { $set: { answers, step, jobDescription, updatedAt: new Date() } },
     { upsert: true }
   );
 }
@@ -54,10 +67,20 @@ export async function clearDraft(userId: string) {
   await (await drafts()).deleteOne({ _id: userId });
 }
 
-export async function insertResume(userId: string, data: Resume): Promise<string> {
+export async function insertResume(
+  userId: string,
+  data: Resume,
+  tailoring?: Tailoring
+): Promise<string> {
   const result = await (
     await resumes()
-  ).insertOne({ _id: new ObjectId(), userId, data, createdAt: new Date() });
+  ).insertOne({
+    _id: new ObjectId(),
+    userId,
+    data,
+    ...(tailoring ? { tailoring } : {}),
+    createdAt: new Date(),
+  });
   return result.insertedId.toHexString();
 }
 

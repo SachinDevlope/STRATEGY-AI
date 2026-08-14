@@ -77,6 +77,35 @@ export const resumeSchema = z.object({
 export type Resume = z.infer<typeof resumeSchema>;
 
 /**
+ * The keyword read on a job description. Returned alongside a tailored resume
+ * so the user can see what the rewrite actually caught — a claim of "tailored"
+ * with nothing to show for it is not checkable.
+ *
+ * `missing` is what the JD asks for and the answers never mentioned. It is
+ * deliberately not written into the resume: inventing a skill to pass a screen
+ * is what gets a candidate caught in the interview.
+ */
+export const tailoringSchema = z.object({
+  matched: z
+    .array(z.string())
+    .describe("JD keywords the candidate's own answers support, as they appear in the JD."),
+  missing: z
+    .array(z.string())
+    .describe("JD keywords with no support in the answers. Never written into the resume."),
+});
+
+export type Tailoring = z.infer<typeof tailoringSchema>;
+
+/** One call returns both, so the keyword read and the rewrite cannot disagree. */
+export const tailoredResumeSchema = z.object({
+  resume: resumeSchema,
+  tailoring: tailoringSchema,
+});
+
+/** Job descriptions run long; anything past this is padding (legal, benefits). */
+export const MAX_JOB_DESCRIPTION = 12000;
+
+/**
  * The eight wizard questions, in order. `id` is the answer key persisted in the
  * draft, so renaming one orphans existing drafts — add a new id instead.
  */

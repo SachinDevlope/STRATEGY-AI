@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import ResumeWizard from "@/components/ResumeWizard";
 import { EMPTY_ANSWERS } from "@/lib/resume";
 import { getDraft } from "@/lib/resume-store";
+import { currentUserId } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Build your resume — Strategy-AI",
@@ -15,8 +15,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function NewResumePage() {
-  const session = await auth();
-  const userId = session?.user?.id;
+  const userId = await currentUserId();
   // middleware.ts already gates /dashboard, but the wizard needs a concrete id
   // to scope the draft, so bail rather than render with none.
   if (!userId) redirect("/login");
@@ -36,13 +35,15 @@ export default async function NewResumePage() {
             </h1>
             <p className="text-body-md text-on-surface-variant">
               Eight questions. Answer them in your own words — rough notes are fine.
-              Everything is saved as you go.
+              Everything is saved as you go. Paste a job description at the end and the
+              resume is tailored to it.
             </p>
           </div>
 
           <ResumeWizard
             initialAnswers={draft?.answers ?? EMPTY_ANSWERS}
             initialStep={draft?.step ?? 0}
+            initialJobDescription={draft?.jobDescription ?? ""}
           />
         </section>
       </main>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Logo from "@/components/Logo";
 
 const PROOF_POINTS = [
   "ATS-optimized resumes that parse in Workday, Greenhouse, and Lever",
@@ -25,12 +26,7 @@ export default function AuthShell({
       {/* Form side */}
       <div className="flex items-center justify-center px-margin-mobile md:px-margin-desktop py-16">
         <div className="w-full max-w-md flex flex-col gap-8">
-          <Link
-            href="/"
-            className="text-headline-lg font-extrabold text-primary tracking-tight"
-          >
-            Strategy-AI
-          </Link>
+          <Logo className="font-display text-headline-lg font-bold text-on-surface tracking-tight" />
 
           <div className="flex flex-col gap-3">
             <p className="text-label-md text-primary uppercase tracking-widest">

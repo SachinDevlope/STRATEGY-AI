@@ -17,8 +17,9 @@ const NEXT_STEPS = [
   },
   {
     icon: "adjust",
-    title: "Tailor to a JD",
-    body: "Paste a job description and rewrite your bullets to match.",
+    title: "Analyse against a JD",
+    body: "Upload your PDF, paste a job description, get a match score and a prep plan.",
+    href: "/dashboard/resume/analyze",
   },
   {
     icon: "mic",
