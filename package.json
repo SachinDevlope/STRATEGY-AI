@@ -12,7 +12,7 @@
     "@auth/mongodb-adapter": "^3.11.3",
     "@vercel/blob": "^2.8.0",
     "ai": "^7.0.65",
-    "mongodb": "^7.5.0",
+    "mongodb": "^6.21.0",
     "next": "^15.5.4",
     "next-auth": "^5.0.0-beta.29",
     "react": "^19.1.0",
