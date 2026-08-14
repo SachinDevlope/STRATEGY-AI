@@ -1,4 +1,5 @@
-import { generateText, streamText, type ModelMessage } from "ai";
+import { generateObject, generateText, streamText, type ModelMessage } from "ai";
+import type { z } from "zod";
 
 /**
  * Models are referenced as plain "provider/model" strings. The AI SDK routes
@@ -42,4 +43,17 @@ export async function generate(options: GenerateOptions) {
  */
 export function stream(options: GenerateOptions) {
   return streamText(resolve(options));
+}
+
+/**
+ * Schema-constrained completion. The SDK retries the model until the output
+ * parses, so the returned value is already validated against `schema` — callers
+ * never have to guard against a half-filled object.
+ */
+export async function generateStructured<T>(
+  schema: z.ZodType<T>,
+  options: GenerateOptions
+): Promise<T> {
+  const { object } = await generateObject({ schema, ...resolve(options) });
+  return object;
 }
