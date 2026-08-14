@@ -9,7 +9,22 @@ import Google from "next-auth/providers/google";
  * lives here; the database adapter is added in auth.ts, which only runs in
  * Node.js route handlers and Server Components.
  */
+// Every Vercel deployment also gets a unique hostname
+// (strategy-k0bwi5vi3-....vercel.app) that changes on each push. If Auth.js
+// derives the OAuth callback from that host, Google rejects it as an
+// unregistered redirect_uri, because only the stable domain can realistically be
+// whitelisted in the Cloud Console. VERCEL_PROJECT_PRODUCTION_URL is injected by
+// Vercel on every deployment and always holds the stable production hostname, so
+// pin AUTH_URL to it unless one was configured explicitly. Undefined locally,
+// where Auth.js correctly falls back to the request host.
+if (!process.env.AUTH_URL && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+  process.env.AUTH_URL = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+}
+
 export const authConfig = {
+  // Vercel terminates TLS upstream, so the forwarded host/proto headers are the
+  // only source of truth for the callback URL.
+  trustHost: true,
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
