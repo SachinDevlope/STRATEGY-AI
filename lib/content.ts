@@ -2,7 +2,7 @@ export type Company = {
   name: string;
   /** Simple Icons slug — https://simpleicons.org */
   slug: string;
-  /** Used for the favicon fallback when Simple Icons has no mark. */
+  /** For the favicon fallback. */
   domain: string;
 };
 
@@ -31,7 +31,7 @@ export const COMPANIES: Company[] = [
 
 export type Stat = { value: string; label: string };
 
-// Placeholder marketing figures — replace with real numbers before launch.
+// Placeholder numbers; replace before launch.
 export const STATS: Stat[] = [
   { value: "50,000+", label: "Job Seekers Prepared" },
   { value: "92%", label: "Interview Success Rate" },

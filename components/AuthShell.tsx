@@ -1,4 +1,3 @@
-import Link from "next/link";
 import Logo from "@/components/Logo";
 
 const PROOF_POINTS = [
@@ -39,18 +38,6 @@ export default function AuthShell({
           {children}
 
           <p className="text-body-sm text-on-surface-variant">{footer}</p>
-
-          <p className="text-body-sm text-on-surface-variant/70">
-            By continuing you agree to our{" "}
-            <Link href="#" className="underline hover:text-primary">
-              Terms of Service
-            </Link>{" "}
-            and{" "}
-            <Link href="#" className="underline hover:text-primary">
-              Privacy Policy
-            </Link>
-            .
-          </p>
         </div>
       </div>
 
@@ -62,7 +49,7 @@ export default function AuthShell({
         <ul className="flex flex-col gap-4 max-w-md">
           {PROOF_POINTS.map((point) => (
             <li key={point} className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-primary">
+              <span aria-hidden="true" className="material-symbols-outlined text-primary">
                 check_circle
               </span>
               <span className="text-body-md text-on-surface-variant">

@@ -32,7 +32,7 @@ export default function BentoGrid() {
                 feature.accent ? "text-tertiary" : "text-primary-fixed"
               }`}
             >
-              <span className="material-symbols-outlined">{feature.icon}</span>
+              <span aria-hidden="true" className="material-symbols-outlined">{feature.icon}</span>
             </div>
             <h3
               className={`font-display ${

@@ -43,7 +43,7 @@ export default function StarSection() {
 
         <div className="order-1 md:order-2 flex flex-col gap-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary-container/30 bg-primary-container/10 text-primary-fixed font-label-caps text-label-caps uppercase w-fit">
-            <span className="material-symbols-outlined text-[14px]">bolt</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[14px]">bolt</span>
             Behavioral Interviews
           </div>
           <h2 className="font-display text-headline-lg text-on-surface">
@@ -60,7 +60,7 @@ export default function StarSection() {
             className="mt-4 bg-primary-container text-on-primary-container font-label-caps text-label-caps uppercase py-4 px-8 rounded btn-glow transition-all duration-300 inline-flex items-center justify-center gap-2 w-full sm:w-fit"
           >
             Try the Story Builder
-            <span className="material-symbols-outlined text-[16px]">
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
               arrow_forward
             </span>
           </Link>

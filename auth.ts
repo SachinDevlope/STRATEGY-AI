@@ -3,21 +3,17 @@ import Credentials from "next-auth/providers/credentials";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import { getClientPromise } from "@/lib/mongodb";
 import { authConfig } from "@/auth.config";
-import { getUserByEmail, verifyPassword } from "@/lib/users";
+import { claimAccountWithGoogle, getUserByEmail, verifyPassword } from "@/lib/users";
 
 /**
- * Full Auth.js config: the edge-safe base plus the MongoDB adapter.
- * Import this from route handlers and Server Components, never from
- * middleware.ts — the MongoDB driver is not Edge-compatible.
+ * Full Auth.js config (edge-safe base + MongoDB).
+ * Node.js only — never import from middleware.ts.
  */
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
   providers: [
     ...authConfig.providers,
-    // Email + password. Declared here rather than in auth.config.ts because
-    // authorize() touches MongoDB, and auth.config.ts is imported by the Edge
-    // middleware. The middleware only verifies an already-issued JWT, so it does
-    // not need to know this provider exists.
+    // Lives here, not in auth.config.ts, because authorize() needs MongoDB.
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
@@ -29,8 +25,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!email || !password) return null;
 
         const user = await getUserByEmail(email);
-        // No hash means the account was created through Google. Returning null
-        // (not a distinct error) keeps this from confirming which emails exist.
+        // Same null for "no password" and "wrong password" — no email probing.
         if (!user?.passwordHash) return null;
         if (!(await verifyPassword(password, user.passwordHash))) return null;
 
@@ -43,10 +38,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
+  events: {
+    // Google proves who owns the email. Drop any password set before that,
+    // so nobody can pre-register someone else's address and keep access.
+    async linkAccount({ user, account }) {
+      if (account.provider === "google" && user.id) {
+        await claimAccountWithGoogle(user.id);
+      }
+    },
+  },
   adapter: MongoDBAdapter(getClientPromise, {
-    // The Gen-Ai database already holds a "users" collection from an earlier
-    // app with a different schema. Namespace the Auth.js collections so the
-    // adapter never writes into it.
+    // Prefixed so the adapter never touches the older "users" collection in Gen-Ai.
     collections: {
       Users: "auth_users",
       Accounts: "auth_accounts",

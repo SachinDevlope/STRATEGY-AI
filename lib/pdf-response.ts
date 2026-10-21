@@ -1,10 +1,4 @@
-/**
- * Shared by the two routes that hand a private PDF back to the browser (the
- * generated resume and the uploaded original): both honour ?download=1 and
- * both must stay out of shared caches.
- */
-
-/** Headers for a private PDF. `?download=1` saves the file instead of opening it. */
+/** Headers for a private PDF. `?download=1` downloads instead of opening inline. */
 export function pdfHeaders(
   request: Request,
   fileName: string,
@@ -13,11 +7,18 @@ export function pdfHeaders(
   const disposition =
     new URL(request.url).searchParams.get("download") === "1" ? "attachment" : "inline";
 
+  // Header values must be ASCII, so send an ASCII fallback plus the real
+  // name UTF-8 encoded (RFC 6266). A raw "–" or "简历" would throw.
+  const ascii = fileName.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "") || "resume.pdf";
+  const encoded = encodeURIComponent(fileName).replace(
+    /['()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`
+  );
+
   return {
     "Content-Type": "application/pdf",
-    // A quote in the name would end the header value early.
-    "Content-Disposition": `${disposition}; filename="${fileName.replace(/"/g, "")}"`,
-    // Private document — never let a shared cache hold a copy.
+    "Content-Disposition": `${disposition}; filename="${ascii}"; filename*=UTF-8''${encoded}`,
+    // Private document — no shared caching.
     "Cache-Control": "private, no-store",
     ...extra,
   };

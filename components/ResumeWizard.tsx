@@ -40,6 +40,8 @@ export default function ResumeWizard({
   const value = answers[question.id] ?? "";
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const tailored = Boolean(jobDescription.trim());
+  // Only autosave after the user actually edits something.
+  const dirtyRef = useRef(false);
 
   // Focus on step change so the wizard is keyboard-only from start to finish.
   useEffect(() => {
@@ -52,28 +54,38 @@ export default function ResumeWizard({
     setSaveState(result.ok ? "saved" : "error");
   }, []);
 
-  // Autosave on a pause in typing as well as on navigation — a tab closed
-  // mid-answer should not lose the paragraph the user just wrote.
+  // Autosave after a pause in typing, so a closed tab loses nothing.
   useEffect(() => {
-    if (finished) return;
+    if (finished || !dirtyRef.current) return;
     const timer = setTimeout(() => {
+      dirtyRef.current = false;
       void persist(answers, step, jobDescription);
     }, 1200);
     return () => clearTimeout(timer);
-  }, [answers, step, jobDescription, finished, persist]);
+    // `step` left out on purpose: go() already saves on step change.
+  }, [answers, jobDescription, finished, persist]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function update(id: QuestionId, text: string) {
+    dirtyRef.current = true;
     setAnswers((current) => ({ ...current, [id]: text }));
     setError(null);
+  }
+
+  function updateJobDescription(text: string) {
+    dirtyRef.current = true;
+    setJobDescription(text);
   }
 
   function go(nextStep: number) {
     const clamped = Math.min(Math.max(nextStep, 0), LAST_STEP);
     setStep(clamped);
+    // Saving here covers pending edits too.
+    dirtyRef.current = false;
     void persist(answers, clamped, jobDescription);
   }
 
   function generate() {
+    if (isGenerating) return;
     const missing = missingRequired(answers);
     if (missing.length) {
       const first = QUESTIONS.findIndex((q) => q.id === missing[0]);
@@ -83,9 +95,13 @@ export default function ResumeWizard({
     }
     setError(null);
     startGenerating(async () => {
-      const result = await generateResumeAction(answers, jobDescription);
-      if (result.ok) setFinished({ resumeId: result.resumeId, tailoring: result.tailoring });
-      else setError(result.error);
+      try {
+        const result = await generateResumeAction(answers, jobDescription);
+        if (result.ok) setFinished({ resumeId: result.resumeId, tailoring: result.tailoring });
+        else setError(result.error);
+      } catch {
+        setError("Could not reach the server. Check your connection and try again.");
+      }
     });
   }
 
@@ -133,7 +149,7 @@ export default function ResumeWizard({
           <span className="text-label-caps text-primary uppercase">
             Question {step + 1} of {QUESTIONS.length}
           </span>
-          <h2 className="text-headline-lg-mobile md:text-headline-lg text-on-surface">
+          <h2 id="wizard-question" className="text-headline-lg-mobile md:text-headline-lg text-on-surface">
             {question.title}
           </h2>
           <p className="text-body-sm text-on-surface-variant">{question.hint}</p>
@@ -143,6 +159,8 @@ export default function ResumeWizard({
           ref={textareaRef}
           value={value}
           rows={question.rows}
+          disabled={isGenerating}
+          aria-labelledby="wizard-question"
           placeholder={question.placeholder}
           onChange={(event) => update(question.id, event.target.value)}
           onKeyDown={onKeyDown}
@@ -150,7 +168,7 @@ export default function ResumeWizard({
         />
 
         <div className="flex items-center justify-between gap-4 min-h-[20px]">
-          <span className="text-body-sm text-on-surface-variant">
+          <span role="status" aria-live="polite" className="text-body-sm text-on-surface-variant">
             {error ? (
               <span className="text-error">{error}</span>
             ) : (
@@ -163,13 +181,11 @@ export default function ResumeWizard({
         </div>
       </div>
 
-      {/* The job description belongs on the last step: it changes how everything
-          already answered is written, so it is the last thing decided, not a
-          ninth question about the candidate. */}
+      {/* JD sits on the last step: it shapes how all earlier answers are written. */}
       {step === LAST_STEP && (
         <JobDescriptionPanel
           value={jobDescription}
-          onChange={setJobDescription}
+          onChange={updateJobDescription}
           disabled={isGenerating}
         />
       )}
@@ -229,7 +245,7 @@ function JobDescriptionPanel({
     <div className="rounded-xl border border-primary/30 bg-primary/[0.04] p-4 md:p-5 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <span className="material-symbols-outlined text-primary text-[20px] leading-none mt-0.5">
+          <span aria-hidden className="material-symbols-outlined text-primary text-[20px] leading-none mt-0.5">
             auto_fix_high
           </span>
           <div className="flex flex-col gap-1">
@@ -259,6 +275,7 @@ function JobDescriptionPanel({
             rows={8}
             disabled={disabled}
             maxLength={MAX_JOB_DESCRIPTION}
+            aria-label="Job description"
             placeholder={
               "Paste the full job posting — title, responsibilities, requirements.\nThe more of it you paste, the better the keyword match."
             }
@@ -297,28 +314,33 @@ function Progress({
   onJump: (step: number) => void;
 }) {
   return (
-    <div className="flex gap-1.5" role="list">
+    <ol className="flex gap-1.5" aria-label="Questions">
       {QUESTIONS.map((question, index) => {
         const answered = Boolean(answers[question.id]?.trim());
         return (
-          <button
-            key={question.id}
-            type="button"
-            role="listitem"
-            aria-label={`Step ${index + 1}: ${question.title}`}
-            aria-current={index === step ? "step" : undefined}
-            onClick={() => onJump(index)}
-            className={`h-1.5 flex-1 rounded-full transition-colors ${
-              index === step
-                ? "bg-primary"
-                : answered
-                  ? "bg-primary/40"
-                  : "bg-outline-variant/40"
-            }`}
-          />
+          <li key={question.id} className="flex-1">
+            {/* Tall hit area, thin visible bar. */}
+            <button
+              type="button"
+              aria-label={`Step ${index + 1}: ${question.title}`}
+              aria-current={index === step ? "step" : undefined}
+              onClick={() => onJump(index)}
+              className="w-full py-2 group"
+            >
+              <span
+                className={`block h-1.5 rounded-full transition-colors ${
+                  index === step
+                    ? "bg-primary"
+                    : answered
+                      ? "bg-primary/40 group-hover:bg-primary/60"
+                      : "bg-outline-variant/40 group-hover:bg-outline-variant/70"
+                }`}
+              />
+            </button>
+          </li>
         );
       })}
-    </div>
+    </ol>
   );
 }
 
@@ -367,8 +389,7 @@ function Done({ resumeId, tailoring }: { resumeId: string; tailoring: Tailoring 
 
 function KeywordReport({ tailoring }: { tailoring: Tailoring }) {
   const total = tailoring.matched.length + tailoring.missing.length;
-  // A JD with no extractable keywords would otherwise render an empty panel
-  // claiming a match of nothing.
+  // No keywords: skip the panel instead of showing "0 of 0".
   if (!total) return null;
 
   const percent = Math.round((tailoring.matched.length / total) * 100);
@@ -426,9 +447,9 @@ function KeywordList({
       <span className="text-label-caps text-on-surface-variant uppercase">{title}</span>
       {hint && <p className="text-body-sm text-on-surface-variant/60">{hint}</p>}
       <ul className="flex flex-wrap gap-2">
-        {items.map((item) => (
+        {items.map((item, i) => (
           <li
-            key={item}
+            key={`${i}-${item}`}
             className={`px-3 py-1 rounded-full border text-body-sm ${className}`}
           >
             {item}

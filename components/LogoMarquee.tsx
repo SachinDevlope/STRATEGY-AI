@@ -4,7 +4,7 @@ import { useState } from "react";
 import { COMPANIES, type Company } from "@/lib/content";
 
 function LogoCard({ company }: { company: Company }) {
-  // Simple Icons has no mark for every brand — fall back to the site favicon.
+  // Fall back to the favicon if Simple Icons has no logo.
   const [failed, setFailed] = useState(false);
 
   const src = failed

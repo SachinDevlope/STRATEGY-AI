@@ -2,11 +2,7 @@ import { ObjectId, type Collection } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import type { Analysis } from "@/lib/analysis";
 
-/**
- * A job description the user has pasted. Kept as its own collection so the same
- * JD can be reused across uploads without pasting it again, and so a stored
- * analysis keeps pointing at the exact text it was scored against.
- */
+// Saved separately so a JD can be reused without pasting it again.
 export type StoredJobDescription = {
   _id: ObjectId;
   userId: string;
@@ -16,18 +12,15 @@ export type StoredJobDescription = {
   createdAt: Date;
 };
 
-/** One resume scored against one job description. Immutable once written. */
+// One resume scored against one JD. Never changed after saving.
 export type StoredAnalysis = {
   _id: ObjectId;
   userId: string;
-  /**
-   * Where the candidate text came from. A pasted self-description has no blob
-   * behind it, so the four upload fields below are absent for "text".
-   */
+  /** "text" has no upload, so the file fields below are empty. */
   source: "pdf" | "text";
-  /** Blob URL of the upload. Private — not fetchable without a session. */
+  /** Private blob URL. */
   resumeUrl?: string;
-  /** Blob pathname, which is what reads and deletes are addressed by. */
+  /** Used to read and delete the blob. */
   resumePathname?: string;
   fileName?: string;
   fileSize?: number;
@@ -58,7 +51,7 @@ export async function listJobDescriptions(
     .toArray();
 }
 
-/** Scoped by userId, so another account's id reads as "not found". */
+// Filter by userId so other users' ids read as "not found".
 export async function getJobDescription(
   userId: string,
   id: string

@@ -7,9 +7,8 @@ import {
 import { unauthorized } from "@/lib/http";
 import { currentUserId } from "@/lib/session";
 
-// Issues a short-lived, tightly scoped Blob token so the browser can PUT the
-// file straight to Blob storage. The bytes never pass through this function,
-// which is what keeps large resumes off the request-body path.
+// Gives the browser a short-lived token to upload straight to Blob,
+// so large files never pass through this server.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -17,9 +16,7 @@ export async function POST(request: Request): Promise<Response> {
   const userId = await currentUserId();
   if (!userId) return unauthorized();
 
-  // Without a store token the SDK throws deep inside handleUpload and the
-  // browser only ever sees "Failed to retrieve the client token". Fail here
-  // instead, where the reason can be logged.
+  // Fail early with a clear log; otherwise the SDK gives a vague error.
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     console.error(
       "BLOB_READ_WRITE_TOKEN is not set. Connect a Vercel Blob store to this " +
@@ -35,33 +32,24 @@ export async function POST(request: Request): Promise<Response> {
       request,
       body,
       onBeforeGenerateToken: async (pathname) => {
-        // The pathname the client asks for is what the token authorizes, so it
-        // is checked against this session's own prefix. Without this, a signed-in
-        // user could request a token for someone else's namespace.
+        // Security: users may only upload into their own folder.
         if (!pathname.startsWith(uploadPrefix(userId))) {
           throw new Error("Upload path is not yours to write to.");
         }
         return {
           allowedContentTypes: ACCEPTED_CONTENT_TYPES,
           maximumSizeInBytes: MAX_UPLOAD_BYTES,
-          // Two uploads of "resume.pdf" must not clobber each other — a stored
-          // analysis keeps pointing at the exact file it was run against.
+          // Same-named uploads must not overwrite each other.
           addRandomSuffix: true,
-          // The pathname is already user-scoped; carrying the id through means
-          // any later callback work does not have to re-parse it.
           tokenPayload: userId,
         };
       },
-      // No onUploadCompleted: the analysis action is what persists the record,
-      // and it needs the user's chosen job description, which the callback has
-      // no way to know. A callback here would only duplicate that write.
+      // No onUploadCompleted: the analysis action saves the record instead.
     });
 
     return Response.json(result);
   } catch (error) {
-    // handleUpload throws on an invalid body, a bad store token, or the prefix
-    // check above. The SDK does not surface this body to the browser, so the
-    // reason is logged here — otherwise it is lost entirely.
+    // Log it: the SDK hides this error from the browser.
     console.error("Resume upload token request failed:", error);
     return Response.json(
       { error: error instanceof Error ? error.message : "Upload failed." },

@@ -2,10 +2,7 @@ import { LoadingPage } from "@/components/LoadingScreen";
 import { BRAND_NAME } from "@/lib/brand";
 import { BASE_META } from "@/lib/loading";
 
-/**
- * Fallback for every route that does not ship its own loading.tsx. No Navbar
- * here — the route this replaces may not have one either.
- */
+// Default loading screen for routes without their own. No Navbar on purpose.
 export default function RootLoading() {
   return (
     <LoadingPage

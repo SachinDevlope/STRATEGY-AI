@@ -2,19 +2,14 @@ import bcrypt from "bcryptjs";
 import { ObjectId, type Collection } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 
-/**
- * A user document in "auth_users" — the same collection the MongoDB adapter
- * writes Google sign-ins into. Password accounts are stored there too, with a
- * `passwordHash` the adapter neither reads nor writes, so a single email can
- * end up with both a Google account link and a password.
- */
+// User in "auth_users", shared with the Auth.js adapter.
 export type AppUser = {
   _id: ObjectId;
   name?: string | null;
   email: string;
   emailVerified?: Date | null;
   image?: string | null;
-  /** Absent on accounts created through Google — those have no password to check. */
+  /** Missing on Google-only accounts. */
   passwordHash?: string;
 };
 
@@ -27,26 +22,27 @@ let indexReady: Promise<unknown> | undefined;
 async function users(): Promise<Collection<AppUser>> {
   const db = await getDb();
   const collection = db.collection<AppUser>("auth_users");
-  // A unique email index is the only thing that makes signup safe against two
-  // concurrent requests both passing the "does this email exist" check.
+  // Unique email stops two racing signups for one address.
   indexReady ??= collection.createIndex({ email: 1 }, { unique: true }).catch(() => {
-    // Pre-existing duplicates would make this fail forever if the rejected
-    // promise stayed cached. Clear it so a later call retries, and fall through
-    // — the explicit lookup in createUserWithPassword still catches the common
-    // case, and the duplicate-key error below catches the race.
+    // Old duplicates can block the index; retry next time instead of caching the failure.
     indexReady = undefined;
   });
   await indexReady;
   return collection;
 }
 
-/** Emails are compared lowercase so "A@b.com" and "a@b.com" are one account. */
+/** Lowercase + trim, so "A@b.com" and "a@b.com" are one account. */
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
 export async function getUserByEmail(email: string): Promise<AppUser | null> {
   return (await users()).findOne({ email: normalizeEmail(email) });
+}
+
+export async function getUserById(id: string): Promise<AppUser | null> {
+  if (!ObjectId.isValid(id)) return null;
+  return (await users()).findOne({ _id: new ObjectId(id) });
 }
 
 export class EmailTakenError extends Error {
@@ -71,8 +67,7 @@ export async function createUserWithPassword(input: {
     _id: new ObjectId(),
     name: input.name.trim() || null,
     email,
-    // Nothing has verified this address yet; the adapter uses the same field
-    // shape for Google users, so keep it present and null.
+    // Not verified until the owner signs in with Google.
     emailVerified: null,
     image: null,
     passwordHash: await bcrypt.hash(input.password, BCRYPT_ROUNDS),
@@ -81,8 +76,7 @@ export async function createUserWithPassword(input: {
   try {
     await collection.insertOne(doc);
   } catch (error) {
-    // Two signups for the same email racing past the lookup above; the unique
-    // index rejects the loser with code 11000.
+    // 11000 = duplicate key: a parallel signup won the race.
     if (typeof error === "object" && error !== null && "code" in error && error.code === 11000) {
       throw new EmailTakenError();
     }
@@ -90,6 +84,16 @@ export async function createUserWithPassword(input: {
   }
 
   return doc;
+}
+
+// On Google link: drop any pre-verification password (it may be someone
+// else's) and mark the email verified.
+export async function claimAccountWithGoogle(userId: string) {
+  if (!ObjectId.isValid(userId)) return;
+  await (await users()).updateOne(
+    { _id: new ObjectId(userId), emailVerified: null },
+    { $unset: { passwordHash: "" }, $set: { emailVerified: new Date() } }
+  );
 }
 
 export async function verifyPassword(

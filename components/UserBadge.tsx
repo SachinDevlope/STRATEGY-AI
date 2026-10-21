@@ -8,11 +8,7 @@ function initials(name: string | null | undefined, email: string | null | undefi
   return letters.join("").toUpperCase() || "?";
 }
 
-/**
- * Avatar plus name. Google accounts carry a profile picture; password accounts
- * have none, so they get an initials disc in the same 32px slot rather than a
- * broken image or a gap that shifts the nav.
- */
+/** Avatar plus name. Falls back to initials when there's no photo. */
 export default function UserBadge({
   name,
   email,

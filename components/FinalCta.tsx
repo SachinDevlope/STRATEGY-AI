@@ -22,7 +22,7 @@ export default function FinalCta() {
           className="inline-flex items-center gap-3 bg-primary-container text-on-primary-container font-label-caps text-label-caps uppercase px-8 py-4 rounded btn-glow transition-all duration-300"
         >
           Build Resume Free
-          <span className="material-symbols-outlined">rocket_launch</span>
+          <span aria-hidden="true" className="material-symbols-outlined">rocket_launch</span>
         </Link>
       </div>
     </section>

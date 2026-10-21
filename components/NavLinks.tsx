@@ -45,8 +45,7 @@ export default function NavLinks() {
         );
         setActive(current ?? null);
       },
-      // Band just under the fixed nav, so a section counts as "active"
-      // only once it reaches the upper part of the viewport.
+      // A section is "active" once it reaches the top part of the screen.
       { rootMargin: "-104px 0px -55% 0px", threshold: 0 }
     );
 

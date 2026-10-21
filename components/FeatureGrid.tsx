@@ -39,7 +39,7 @@ export default function FeatureGrid({
             className="glass-panel glass-panel-glow rounded-xl p-8 hover:-translate-y-1 flex flex-col gap-4"
           >
             <div className="w-12 h-12 bg-surface border border-outline-variant rounded flex items-center justify-center text-primary-fixed mb-2">
-              <span className="material-symbols-outlined text-3xl">
+              <span aria-hidden="true" className="material-symbols-outlined text-3xl">
                 {feature.icon}
               </span>
             </div>

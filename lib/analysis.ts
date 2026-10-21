@@ -1,14 +1,7 @@
 import { z } from "zod";
 
-/**
- * The interview report the model must return for one resume against one job
- * description. This is the contract between the Groq call and the results page
- * — every field the page draws is declared here, and nothing else is trusted.
- *
- * Nothing is optional: a constrained decoder fills what it is asked for, and an
- * absent field would only push the "is this missing or empty?" question into
- * the UI.
- */
+// Shape of the AI interview report. All fields are required so the UI never
+// has to guess "missing or empty?".
 export const SEVERITIES = ["high", "medium", "low"] as const;
 export type Severity = (typeof SEVERITIES)[number];
 
@@ -20,23 +13,13 @@ const questionSchema = z.object({
     .describe("How to answer: the points to cover and the approach to take"),
 });
 
-/**
- * How many items each list is asked for. These are prompt and post-check
- * values, deliberately not `.min()` constraints on the schema below: Groq's
- * constrained decoder enforces the *shape* of a JSON schema, not its
- * `minItems`/`minimum` keywords, so a short list came back shaped correctly and
- * then failed Zod, failing the whole request with "invalid schema". Counts are
- * now asked for in the prompt and repaired in a second round instead.
- */
+// Minimum question counts. Not schema `.min()` rules: Groq ignores minItems, so
+// short lists would fail Zod. We ask in the prompt and repair afterwards.
 export const MIN_TECHNICAL_QUESTIONS = 6;
 export const MIN_BEHAVIOURAL_QUESTIONS = 4;
 
-/**
- * A list of plain strings, tolerant of the one way the model drifts from it:
- * wrapping each line in an object ({ fix: "..." }, { skill: "..." }). The text
- * is all the page draws, so an object is unwrapped rather than thrown away —
- * losing a whole report over the shape of a bullet is the worse trade.
- */
+// String list that also accepts { fix: "..." }-style objects from the model,
+// unwrapping them instead of failing the whole report.
 function stringList(description: string) {
   return z.preprocess(
     (value) =>
@@ -50,8 +33,7 @@ function stringList(description: string) {
 function unwrapString(item: unknown): string {
   if (typeof item === "string") return item.trim();
   if (item && typeof item === "object") {
-    // Whatever the model called the field, the longest string in the object is
-    // the sentence; any siblings are labels like "section" or "priority".
+    // The longest string is the sentence; shorter ones are labels.
     const text = Object.values(item as Record<string, unknown>)
       .filter((value): value is string => typeof value === "string")
       .sort((a, b) => b.length - a.length)[0];
@@ -134,33 +116,26 @@ export const analysisSchema = z.object({
 
 export type Analysis = z.infer<typeof analysisSchema>;
 
-/** Upload limits. Enforced on the client, in the Blob token, and on the server. */
+// Enforced on the client, in the Blob token, and on the server.
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-/** Above this, the client uploads in parallel parts instead of one request. */
+// Above this, upload in parallel parts.
 export const MULTIPART_THRESHOLD_BYTES = 5 * 1024 * 1024;
 export const ACCEPTED_CONTENT_TYPES = ["application/pdf"];
 
-/** A PDF that parses to less than this is almost certainly a scan, not text. */
+// Less text than this usually means a scanned PDF.
 export const MIN_RESUME_CHARS = 300;
-/**
- * Pasted text is held to a lower bar than a PDF: a self-description written in
- * the box is legitimately shorter than a resume, and there is no scan to catch.
- */
+// Lower bar for pasted text: it can be shorter and can't be a scan.
 export const MIN_PASTED_RESUME_CHARS = 200;
 export const MAX_RESUME_CHARS = 30_000;
 export const MIN_JD_CHARS = 80;
 export const MAX_JD_CHARS = 20_000;
 
-/**
- * Blobs are namespaced per user, so a token issued for one session can never
- * be pointed at another user's prefix. The upload route re-checks this prefix
- * before it signs anything.
- */
+// Per-user blob folder, so one user's token can't touch another's files.
 export function uploadPrefix(userId: string) {
   return `resume-uploads/${userId}/`;
 }
 
-/** Keeps the original name recognisable in the blob store without trusting it. */
+// Sanitised file name; never trust the user's original.
 export function safeFileName(name: string) {
   const base = name.replace(/\.pdf$/i, "").slice(0, 60);
   const slug = base.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "");

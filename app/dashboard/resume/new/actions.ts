@@ -11,13 +11,11 @@ import {
   type Tailoring,
 } from "@/lib/resume";
 import { clearDraft, insertResume, saveDraft } from "@/lib/resume-store";
+import { userMessage } from "@/lib/errors";
+import { limitAi } from "@/lib/rate-limit";
 import { requireUserId } from "@/lib/session";
 
-/**
- * Answers arrive as free text from the client, so they are re-read against the
- * known question ids rather than trusted wholesale — an unknown key never
- * reaches the database or the prompt.
- */
+// Keep only known question ids so unknown client keys never reach the DB or prompt.
 function sanitize(input: Answers): Answers {
   const clean: Answers = {};
   for (const { id } of QUESTIONS) {
@@ -34,7 +32,7 @@ function sanitizeJobDescription(input: unknown): string {
 
 export type SaveResult = { ok: true; savedAt: number } | { ok: false; error: string };
 
-/** Called on every step change so a refresh or a closed tab loses nothing. */
+// Autosave on every step so a refresh loses nothing.
 export async function saveDraftAction(
   answers: Answers,
   step: number,
@@ -50,9 +48,8 @@ export async function saveDraftAction(
     );
     return { ok: true, savedAt: Date.now() };
   } catch (error) {
-    // A failed autosave must not break the wizard — the client keeps its own
-    // state and retries on the next step.
-    return { ok: false, error: error instanceof Error ? error.message : "Save failed." };
+    // Don't break the wizard; the client retries on the next step.
+    return { ok: false, error: userMessage(error, "Save failed.") };
   }
 }
 
@@ -66,12 +63,7 @@ Rules:
 - Plain ASCII output. No markdown, no emoji, no decorative characters — ATS parsers drop them.
 - Rewrite loose notes into professional phrasing, but keep the candidate's own scope and seniority.`;
 
-/**
- * Appended when a job description is supplied. The hard line is between
- * *wording* and *facts*: the JD may dictate which of the candidate's real work
- * leads and what it is called, and may never add work the candidate did not do.
- * A resume that clears the ATS on invented keywords fails the interview instead.
- */
+// Used when a JD is given. The JD can change wording and order, never add facts.
 const TAILORING_PROMPT = `${SYSTEM_PROMPT}
 
 Tailoring rules — a specific job description is supplied:
@@ -102,14 +94,8 @@ export type GenerateResult =
   | { ok: true; resumeId: string; tailoring: Tailoring | null }
   | { ok: false; error: string };
 
-/**
- * Turns the wizard answers into a validated resume and stores it. The draft is
- * cleared only after the insert succeeds, so a failed generation leaves the
- * user's answers intact.
- *
- * With a job description, one call produces both the resume and the keyword
- * read, so the two cannot disagree about what was actually matched.
- */
+// Generates and saves the resume. The draft is cleared only after the save
+// succeeds, so a failure keeps the user's answers.
 export async function generateResumeAction(
   input: Answers,
   jobDescriptionInput?: string
@@ -124,6 +110,8 @@ export async function generateResumeAction(
       const titles = QUESTIONS.filter((q) => missing.includes(q.id)).map((q) => q.title);
       return { ok: false, error: `Still need: ${titles.join(", ")}` };
     }
+
+    await limitAi(userId);
 
     if (!jobDescription) {
       const resume = await generateStructured(resumeSchema, {
@@ -145,9 +133,6 @@ export async function generateResumeAction(
     await clearDraft(userId);
     return { ok: true, resumeId, tailoring };
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Could not generate the resume.",
-    };
+    return { ok: false, error: userMessage(error, "Could not generate the resume. Try again.") };
   }
 }

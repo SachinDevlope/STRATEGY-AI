@@ -18,7 +18,7 @@ export default function Hero() {
 
       <div className="flex flex-col gap-6 relative z-10">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary-container/30 bg-primary-container/10 text-primary-fixed w-fit">
-          <span className="material-symbols-outlined text-[14px]">bolt</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">bolt</span>
           <span className="font-label-caps text-[10px] tracking-[0.1em] uppercase">
             AI-Powered Precision
           </span>
@@ -45,7 +45,7 @@ export default function Hero() {
             className="bg-primary-container text-on-primary-container font-label-caps text-label-caps uppercase py-4 px-8 rounded text-center btn-glow transition-all duration-300 w-full sm:w-auto flex items-center justify-center gap-2"
           >
             Build Resume Free
-            <span className="material-symbols-outlined text-[16px]">
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
               arrow_forward
             </span>
           </Link>
@@ -53,7 +53,7 @@ export default function Hero() {
             href="/signup"
             className="border border-primary-container text-primary-fixed hover:bg-primary-container/10 font-label-caps text-label-caps uppercase py-4 px-8 rounded text-center transition-colors w-full sm:w-auto flex items-center justify-center gap-2"
           >
-            <span className="material-symbols-outlined text-[16px]">mic</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">mic</span>
             Start Mock Interview
           </Link>
         </div>
@@ -72,7 +72,7 @@ export default function Hero() {
         {/* Floating ATS score readout. */}
         <div className="absolute -right-3 -bottom-6 md:-right-6 glass-panel p-4 rounded-lg flex items-center gap-4">
           <div className="w-12 h-12 rounded bg-surface-container-highest flex items-center justify-center">
-            <span className="material-symbols-outlined text-green-400">
+            <span aria-hidden="true" className="material-symbols-outlined text-green-400">
               check_circle
             </span>
           </div>

@@ -23,11 +23,7 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
-/**
- * Email + password form for /login and /signup. The signup variant adds a name
- * field; the login variant carries the callbackUrl through so a user bounced off
- * a protected page returns to it.
- */
+/** Email + password form for /login and /signup. */
 export default function CredentialsForm({
   mode,
   action,

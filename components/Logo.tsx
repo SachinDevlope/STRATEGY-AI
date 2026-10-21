@@ -1,12 +1,8 @@
 import Link from "next/link";
 import { BRAND_ICON, BRAND_NAME } from "@/lib/brand";
 
-/**
- * The single brand mark. Every place that draws the logo — navbar, footer,
- * auth pages, loading screens — pulls the glyph and wordmark from here so
- * they can never drift apart.
- */
-export function LogoMark({ className = "" }: { className?: string }) {
+// The one logo, used everywhere so it never drifts.
+function LogoMark({ className = "" }: { className?: string }) {
   return (
     <span
       className={`material-symbols-outlined text-primary-container ${className}`}

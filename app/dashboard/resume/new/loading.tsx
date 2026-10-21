@@ -1,11 +1,9 @@
 import { LoadingPage } from "@/components/LoadingScreen";
 import { BASE_META } from "@/lib/loading";
-import Navbar from "@/components/Navbar";
 
 export default function ResumeBuilderLoading() {
   return (
     <>
-      <Navbar />
       <LoadingPage
         node="Builder Node"
         icon="draft"

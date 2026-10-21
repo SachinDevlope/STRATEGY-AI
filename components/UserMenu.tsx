@@ -2,16 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { signOutAction } from "@/app/actions/auth";
 import UserBadge from "@/components/UserBadge";
 import { SECTION_LINKS } from "@/lib/nav";
 
-/**
- * Signed-in navigation. Once there is an account the top bar drops the marketing
- * links and puts everything — the sections, the dashboard, sign-out — behind the
- * profile button, so the bar stays short whatever the name length.
- */
+/** Signed-in nav: all links live behind the profile button. */
 export default function UserMenu({
   name,
   email,
@@ -23,9 +19,11 @@ export default function UserMenu({
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
   const pathname = usePathname();
 
-  // A navigation inside the menu leaves it open behind the new page otherwise.
+  // Close the menu after navigating.
   useEffect(() => setOpen(false), [pathname]);
 
   useEffect(() => {
@@ -35,7 +33,9 @@ export default function UserMenu({
       if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
     }
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      triggerRef.current?.focus();
     }
 
     document.addEventListener("mousedown", onPointerDown);
@@ -51,9 +51,10 @@ export default function UserMenu({
   return (
     <div ref={containerRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
-        aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls={panelId}
         onClick={() => setOpen((value) => !value)}
         className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-full border border-outline-variant/40 bg-surface-container-low/60 hover:border-primary-container/50 transition-colors"
       >
@@ -70,7 +71,7 @@ export default function UserMenu({
 
       {open && (
         <div
-          role="menu"
+          id={panelId}
           className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-outline-variant/40 bg-surface-container-low shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col py-1.5"
         >
           <span className="px-4 py-2 text-body-sm text-on-surface-variant/70 truncate border-b border-outline-variant/30 mb-1.5">
@@ -91,7 +92,6 @@ export default function UserMenu({
           <form action={signOutAction} className="border-t border-outline-variant/30 mt-1.5 pt-1.5">
             <button
               type="submit"
-              role="menuitem"
               className="w-full flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface-variant hover:bg-primary-container/5 hover:text-primary-fixed transition-colors"
             >
               <span aria-hidden className="material-symbols-outlined text-[18px]">
@@ -124,7 +124,6 @@ function MenuLink({
   return (
     <Link
       href={href}
-      role="menuitem"
       className="flex items-center gap-3 px-4 py-2.5 text-body-md text-on-surface-variant hover:bg-primary-container/5 hover:text-primary-fixed transition-colors"
     >
       <span aria-hidden className="material-symbols-outlined text-[18px]">

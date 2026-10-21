@@ -1,10 +1,6 @@
 import Link from "next/link";
 
-/**
- * Without this the App Router falls back to the pages-router error page, which
- * cannot be prerendered once a root loading.tsx exists ("Cannot find module for
- * page: /_document").
- */
+// Needed: the default 404 fails to build with a root loading.tsx.
 export default function NotFound() {
   return (
     <main className="flex-grow flex items-center justify-center px-margin-mobile md:px-margin-desktop py-24">

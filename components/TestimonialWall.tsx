@@ -2,9 +2,9 @@ import { TESTIMONIALS } from "@/lib/content";
 
 function Stars() {
   return (
-    <div className="flex gap-1 text-accent">
+    <div className="flex gap-1 text-accent" role="img" aria-label="5 out of 5 stars">
       {Array.from({ length: 5 }).map((_, i) => (
-        <span key={i} className="material-symbols-outlined text-base">
+        <span key={i} aria-hidden="true" className="material-symbols-outlined text-base">
           star
         </span>
       ))}

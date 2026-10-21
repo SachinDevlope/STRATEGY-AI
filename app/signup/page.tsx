@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { auth } from "@/auth";
+import { currentUserId } from "@/lib/session";
 import AuthShell from "@/components/AuthShell";
 import CredentialsForm from "@/components/CredentialsForm";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
@@ -14,8 +14,8 @@ export const metadata: Metadata = {
 };
 
 export default async function SignupPage() {
-  const session = await auth();
-  if (session?.user) redirect("/dashboard");
+  // currentUserId() also rejects a password session that was revoked.
+  if (await currentUserId()) redirect("/dashboard");
 
   return (
     <AuthShell

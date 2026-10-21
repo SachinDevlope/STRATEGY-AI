@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import Footer from "@/components/Footer";
-import Navbar from "@/components/Navbar";
 import { getAnalysis, getJobDescription } from "@/lib/analysis-store";
 import type { Analysis, Severity } from "@/lib/analysis";
 import { currentUserId } from "@/lib/session";
@@ -13,7 +11,7 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-/** Circumference of the r=54 ring the score arc is drawn on. */
+// Circumference of the r=54 score ring.
 const RING_LENGTH = 339.292;
 
 export default async function AnalysisPage({
@@ -25,12 +23,11 @@ export default async function AnalysisPage({
   if (!userId) redirect("/login");
 
   const { id } = await params;
-  // getAnalysis() filters on userId, so someone else's id is indistinguishable
-  // from one that does not exist.
+  // Scoped to userId, so another user's id just 404s.
   const stored = await getAnalysis(userId, id);
   if (!stored) notFound();
 
-  // The company name lives on the job description, not on the analysis.
+  // Company name is stored on the job description.
   const job = await getJobDescription(userId, stored.jobDescriptionId.toHexString());
 
   const report = stored.data;
@@ -43,9 +40,7 @@ export default async function AnalysisPage({
 
   return (
     <>
-      <Navbar />
       <main className="flex-grow pt-[104px] pb-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full flex flex-col gap-8 relative z-10">
-        {/* Ambient cyan bloom behind the report. */}
         <div
           aria-hidden
           className="fixed inset-0 pointer-events-none z-0 opacity-20"
@@ -56,26 +51,25 @@ export default async function AnalysisPage({
         />
 
         <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-2 border-b border-outline-variant/30 pb-8 relative">
-          <div>
+          <div className="min-w-0 max-w-full">
             <div className="flex items-center gap-3 mb-2">
-              <span className="material-symbols-outlined text-primary-container">
+              <span aria-hidden="true" className="material-symbols-outlined text-primary-container">
                 analytics
               </span>
-              <h2 className="font-label-caps text-label-caps text-primary-container uppercase">
+              <p className="font-label-caps text-label-caps text-primary-container uppercase">
                 Analysis complete
-              </h2>
+              </p>
             </div>
-            <h1 className="font-display text-headline-lg-mobile md:text-headline-xl text-on-surface leading-tight mb-2">
+            <h1 className="font-display text-headline-lg-mobile md:text-headline-xl text-on-surface leading-tight mb-2 break-words">
               {report.title || stored.jobTitle}
             </h1>
-            <p className="text-on-surface-variant font-data-tabular text-data-tabular">
+            <p className="text-on-surface-variant font-data-tabular text-data-tabular break-words">
               {job?.company ? `Target role at ${job.company} • ` : "Target role • "}
               Analysed on {analysedOn}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            {/* A pasted description has no blob behind it, so there is
-                nothing to open. */}
+            {/* Pasted text has no file to open. */}
             {stored.resumePathname && (
               <a
                 href={`/api/resume/analysis/${id}/file`}
@@ -83,7 +77,7 @@ export default async function AnalysisPage({
                 rel="noreferrer"
                 className="border border-outline-variant text-on-surface-variant px-4 py-2 rounded font-label-caps text-label-caps uppercase hover:border-primary-container hover:text-primary-container transition-colors flex items-center gap-2"
               >
-                <span className="material-symbols-outlined text-[18px]">description</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">description</span>
                 Open resume
               </a>
             )}
@@ -91,14 +85,14 @@ export default async function AnalysisPage({
               href="/dashboard/resume/analyze"
               className="border border-outline-variant text-on-surface-variant px-4 py-2 rounded font-label-caps text-label-caps uppercase hover:border-primary-container hover:text-primary-container transition-colors flex items-center gap-2"
             >
-              <span className="material-symbols-outlined text-[18px]">add</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">add</span>
               Analyse another
             </Link>
           </div>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter relative">
-          {/* Match score ------------------------------------------------ */}
+          {/* Match score */}
           <div className="md:col-span-4 glass-panel rounded-xl p-6 cyber-glow flex flex-col items-center justify-center relative overflow-hidden">
             <div
               aria-hidden
@@ -113,27 +107,27 @@ export default async function AnalysisPage({
             </p>
           </div>
 
-          {/* Keyword gap ----------------------------------------------- */}
+          {/* Keyword gap */}
           <div className="md:col-span-8 glass-panel rounded-xl p-6 flex flex-col">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-label-caps text-label-caps uppercase text-on-surface-variant">
                 Keyword gap analysis
               </h3>
-              <span className="material-symbols-outlined text-outline">troubleshoot</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-outline">troubleshoot</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-grow">
               <div>
                 <h4 className="font-data-tabular text-data-tabular text-on-surface mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px] text-tertiary-fixed-dim">
+                  <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-tertiary-fixed-dim">
                     check_circle
                   </span>
                   Verified skills
                 </h4>
                 {report.matchedSkills.length ? (
                   <ul className="flex flex-col gap-2">
-                    {report.matchedSkills.map((item) => (
+                    {report.matchedSkills.map((item, i) => (
                       <li
-                        key={item.skill}
+                        key={`${i}-${item.skill}`}
                         className="px-3 py-2 bg-surface-container border border-surface-container-highest rounded flex flex-col gap-0.5"
                       >
                         <span className="font-data-tabular text-[13px] text-on-surface">
@@ -154,13 +148,13 @@ export default async function AnalysisPage({
 
               <div>
                 <h4 className="font-data-tabular text-data-tabular text-error mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">warning</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[16px]">warning</span>
                   Missing keywords
                 </h4>
                 {report.skillGap.length ? (
                   <ul className="flex flex-col gap-3">
-                    {report.skillGap.map((gap) => (
-                      <li key={gap.skill}>
+                    {report.skillGap.map((gap, i) => (
+                      <li key={`${i}-${gap.skill}`}>
                         <GapRow severity={gap.severity} skill={gap.skill} why={gap.why} />
                       </li>
                     ))}
@@ -174,10 +168,10 @@ export default async function AnalysisPage({
             </div>
           </div>
 
-          {/* Interview prep -------------------------------------------- */}
+          {/* Interview prep */}
           <div className="md:col-span-12 glass-panel rounded-xl p-6 mt-4">
             <div className="flex items-center gap-3 mb-6 border-b border-outline-variant/30 pb-4">
-              <span className="material-symbols-outlined text-primary-container">
+              <span aria-hidden="true" className="material-symbols-outlined text-primary-container">
                 smart_toy
               </span>
               <h3 className="font-display text-headline-lg-mobile md:text-headline-lg text-on-surface">
@@ -203,64 +197,70 @@ export default async function AnalysisPage({
             </div>
           </div>
 
-          {/* Action plan ------------------------------------------------ */}
+          {/* Action plan */}
           <div className="md:col-span-12 glass-panel rounded-xl p-6 mt-4 border-l-4 border-primary-container">
             <h3 className="font-label-caps text-label-caps uppercase text-on-surface-variant mb-6">
               Action plan
             </h3>
-            <ol className="flex flex-col gap-4">
-              {report.preparationPlan.map((day, index) => (
-                <li
-                  key={day.day}
-                  className="flex items-start gap-4 p-4 bg-surface-container-lowest border border-outline-variant/30 rounded"
-                >
-                  <span
-                    className={`w-6 h-6 rounded-full flex items-center justify-center font-data-tabular text-[12px] shrink-0 mt-0.5 ${
-                      index === 0
-                        ? "bg-primary-container/20 text-primary-container"
-                        : "bg-surface-bright text-on-surface-variant"
-                    }`}
+            {report.preparationPlan.length ? (
+              <ol className="flex flex-col gap-4">
+                {report.preparationPlan.map((day, index) => (
+                  <li
+                    key={`${index}-${day.day}`}
+                    className="flex items-start gap-4 p-4 bg-surface-container-lowest border border-outline-variant/30 rounded"
                   >
-                    {day.day}
-                  </span>
-                  <div className="flex flex-col gap-2">
-                    <h4 className="font-data-tabular text-[15px] text-on-surface">
-                      {day.focus}
-                    </h4>
-                    {day.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {day.skills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="font-label-caps text-[10px] uppercase text-primary-container bg-primary-container/10 px-2 py-1 rounded"
-                          >
-                            {skill}
-                          </span>
+                    <span
+                      className={`w-6 h-6 rounded-full flex items-center justify-center font-data-tabular text-[12px] shrink-0 mt-0.5 ${
+                        index === 0
+                          ? "bg-primary-container/20 text-primary-container"
+                          : "bg-surface-bright text-on-surface-variant"
+                      }`}
+                    >
+                      {day.day}
+                    </span>
+                    <div className="flex flex-col gap-2 min-w-0">
+                      <h4 className="font-data-tabular text-[15px] text-on-surface break-words">
+                        {day.focus}
+                      </h4>
+                      {day.skills.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {day.skills.map((skill, i) => (
+                            <span
+                              key={`${i}-${skill}`}
+                              className="font-label-caps text-[10px] uppercase text-primary-container bg-primary-container/10 px-2 py-1 rounded"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <ul className="flex flex-col gap-1.5 list-disc pl-4">
+                        {day.tasks.map((task, i) => (
+                          <li key={`${i}-${task}`} className="text-on-surface-variant text-body-sm">
+                            {task}
+                          </li>
                         ))}
-                      </div>
-                    )}
-                    <ul className="flex flex-col gap-1.5 list-disc pl-4">
-                      {day.tasks.map((task) => (
-                        <li key={task} className="text-on-surface-variant text-body-sm">
-                          {task}
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="text-body-sm text-on-surface">
-                      <span className="text-primary-container">By the end: </span>
-                      {day.outcome}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
+                      </ul>
+                      <p className="text-body-sm text-on-surface">
+                        <span className="text-primary-container">By the end: </span>
+                        {day.outcome}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="text-body-sm text-on-surface-variant">
+                No preparation plan was generated for this analysis.
+              </p>
+            )}
           </div>
 
-          {/* Resume fixes ----------------------------------------------- */}
+          {/* Resume fixes */}
           {report.resumeFixes.length > 0 && (
             <div className="md:col-span-12 glass-panel rounded-xl p-6 mt-4">
               <div className="flex items-center gap-3 mb-6">
-                <span className="material-symbols-outlined text-primary-container">
+                <span aria-hidden="true" className="material-symbols-outlined text-primary-container">
                   edit_document
                 </span>
                 <h3 className="font-label-caps text-label-caps uppercase text-on-surface-variant">
@@ -268,12 +268,12 @@ export default async function AnalysisPage({
                 </h3>
               </div>
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {report.resumeFixes.map((fix) => (
+                {report.resumeFixes.map((fix, i) => (
                   <li
-                    key={fix}
+                    key={`${i}-${fix}`}
                     className="flex items-start gap-3 p-3 bg-surface-container-low border border-outline-variant/30 rounded text-body-sm text-on-surface-variant"
                   >
-                    <span className="material-symbols-outlined text-[16px] text-tertiary-fixed-dim mt-0.5">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-tertiary-fixed-dim mt-0.5">
                       arrow_right_alt
                     </span>
                     {fix}
@@ -284,14 +284,12 @@ export default async function AnalysisPage({
           )}
         </div>
       </main>
-      <Footer />
     </>
   );
 }
 
 function ScoreRing({ score }: { score: number }) {
   const offset = RING_LENGTH - (RING_LENGTH * score) / 100;
-  // Same three bands the copy under the ring reads from.
   const band = score >= 75 ? "High match" : score >= 50 ? "Partial match" : "Low match";
 
   return (
@@ -318,8 +316,7 @@ function ScoreRing({ score }: { score: number }) {
           strokeWidth="8"
           strokeLinecap="round"
           strokeDasharray={RING_LENGTH}
-          // The keyframe animates to this value, so it is passed as a
-          // custom property rather than set directly.
+          // Passed as a CSS variable because the keyframe animates to it.
           style={
             {
               "--ring-offset": String(offset),
@@ -350,8 +347,7 @@ function GapRow({
   skill: string;
   why: string;
 }) {
-  // Only a high-severity gap is worth an alarm colour; colouring all three
-  // would leave nothing standing out.
+  // Only high severity gets the alarm colour, so it stands out.
   const high = severity === "high";
   return (
     <div
@@ -363,7 +359,7 @@ function GapRow({
     >
       <div className="flex items-center justify-between gap-2">
         <span
-          className={`font-data-tabular text-[13px] ${
+          className={`font-data-tabular text-[13px] min-w-0 break-words ${
             high ? "text-error" : "text-on-surface-variant"
           }`}
         >
@@ -391,11 +387,18 @@ function QuestionList({
 }) {
   const bar = accent === "primary" ? "bg-primary-container" : "bg-secondary-fixed";
   const label = accent === "primary" ? "text-primary-container" : "text-secondary-fixed";
+  if (!questions.length) {
+    return (
+      <p className="text-body-sm text-on-surface-variant">
+        No questions were generated for this section.
+      </p>
+    );
+  }
   return (
     <ol className="flex flex-col gap-4">
-      {questions.map((item) => (
+      {questions.map((item, i) => (
         <li
-          key={item.question}
+          key={`${i}-${item.question}`}
           className="group border border-outline-variant/30 bg-surface-container-low hover:bg-surface-container transition-colors rounded-lg p-4 relative overflow-hidden"
         >
           <div

@@ -1,18 +1,25 @@
 import { auth } from "@/auth";
+import { UserError } from "@/lib/errors";
+import { getUserById } from "@/lib/users";
 
-/** The signed-in user's id, or null. Use where "not signed in" is a normal case. */
+/** Signed-in user's id, or null. */
 export async function currentUserId(): Promise<string | null> {
   const session = await auth();
-  return session?.user?.id ?? null;
+  const id = session?.user?.id;
+  if (!id) return null;
+
+  // A password session dies once the password is removed (see auth.ts linkAccount).
+  // Tokens from before `provider` existed are checked too.
+  if (session.user.provider !== "google") {
+    const user = await getUserById(id);
+    if (!user?.passwordHash) return null;
+  }
+  return id;
 }
 
-/**
- * The signed-in user's id, or a thrown error. Server actions are only reachable
- * from pages the middleware already guards, so an anonymous call is a bug
- * rather than a state worth rendering.
- */
+/** Signed-in user's id, or a UserError asking them to sign in again. */
 export async function requireUserId(): Promise<string> {
   const id = await currentUserId();
-  if (!id) throw new Error("Not signed in.");
+  if (!id) throw new UserError("Your session expired. Sign in again to continue.");
   return id;
 }

@@ -2,9 +2,11 @@
 
 import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
+import { UserError } from "@/lib/errors";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { normalizeEmail } from "@/lib/users";
 
-/** What the form renders back to the user. `null` means nothing has failed yet. */
+/** Form state. `error: null` = nothing failed yet. */
 export type CredentialsFormState = { error: string | null };
 
 export async function loginWithPassword(
@@ -20,16 +22,23 @@ export async function loginWithPassword(
   }
 
   try {
+    // Per IP and per email, so one address can't be brute-forced from many IPs.
+    await rateLimit(`login-ip:${await clientIp()}`, 30, 15 * 60);
+    await rateLimit(`login-email:${email}`, 10, 15 * 60);
+  } catch (error) {
+    if (error instanceof UserError) return { error: error.message };
+    throw error;
+  }
+
+  try {
     await signIn("credentials", { email, password, redirectTo: callbackUrl });
   } catch (error) {
-    // A successful signIn redirects by throwing NEXT_REDIRECT, so only AuthError
-    // means the sign-in itself failed — anything else has to keep propagating.
+    // Success throws NEXT_REDIRECT, so only AuthError is a real failure.
     if (error instanceof AuthError) {
       return {
         error:
           error.type === "CredentialsSignin"
-            ? // Deliberately vague: naming which half was wrong would let anyone
-              // probe the database for registered emails.
+            ? // Vague on purpose: don't reveal which emails exist.
               "Wrong email or password. If you signed up with Google, use the Google button."
             : "Sign-in failed. Try again.",
       };

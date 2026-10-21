@@ -6,32 +6,25 @@ import { BRAND_NAME } from "@/lib/brand";
 import { BASE_META } from "@/lib/loading";
 import { lockBodyScroll } from "@/lib/scroll-lock";
 
-/** Below this the loader would flash rather than read as a loading screen. */
+// Shorter than this and the loader just flashes.
 const MIN_VISIBLE_MS = 900;
-/** Matches the fade-out duration in the className below. */
+// Must match the fade duration in the className below.
 const FADE_MS = 400;
 
-/**
- * The boot screen. Rendered in the root layout, so it is part of the server
- * HTML and covers the page from the very first paint until fonts, styles and
- * hydration have all landed — the window that would otherwise show unstyled
- * or half-drawn content.
- */
+/** Boot screen in the root layout; hides the page until it has fully loaded. */
 export default function SiteLoader() {
-  // Starts visible on the server too, so there is no gap before hydration.
+  // Visible from server render, so there's no gap before hydration.
   const [phase, setPhase] = useState<"visible" | "fading" | "gone">("visible");
 
-  // Runs once on mount. It must not depend on `phase`: setting "fading"
-  // would re-run it, and the cleanup would clear the very timer that takes
-  // the loader to "gone" — leaving the page permanently unscrollable.
+  // Run once only. Depending on `phase` would clear the "gone" timer and
+  // leave the page stuck unscrollable.
   useEffect(() => {
     let fadeTimer: ReturnType<typeof setTimeout>;
     let goneTimer: ReturnType<typeof setTimeout>;
     const startedAt = performance.now();
 
     function begin() {
-      // Whichever is later: the page being ready, or the minimum on-screen
-      // time. Without the floor a warm cache makes it blink.
+      // Wait for page load and the minimum time, whichever is later.
       const waited = performance.now() - startedAt;
       fadeTimer = setTimeout(() => {
         setPhase("fading");
@@ -55,7 +48,6 @@ export default function SiteLoader() {
     };
   }, []);
 
-  // Nothing behind the loader should scroll while it is up.
   useEffect(() => {
     if (phase === "gone") return;
     return lockBodyScroll();

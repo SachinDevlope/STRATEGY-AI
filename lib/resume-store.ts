@@ -2,29 +2,22 @@ import { ObjectId, type Collection } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import type { Answers, Resume, Tailoring } from "@/lib/resume";
 
-/**
- * The in-progress wizard. One draft per user — starting a new resume overwrites
- * the previous answers, which is why generated resumes are stored separately.
- */
+// In-progress wizard answers. One draft per user.
 export type ResumeDraft = {
   _id: string;
   answers: Answers;
-  /**
-   * The job description the resume is being aimed at. Kept beside the answers
-   * rather than inside them: it is not something the user knows about
-   * themselves, and it is replaced wholesale each time they target a new role.
-   */
+  /** Target job description, replaced each time the user targets a new role. */
   jobDescription?: string;
   step: number;
   updatedAt: Date;
 };
 
-/** A generated, schema-validated resume. Immutable once written. */
+// A generated resume. Never changed after saving.
 export type StoredResume = {
   _id: ObjectId;
   userId: string;
   data: Resume;
-  /** Present only when the resume was generated against a job description. */
+  /** Only set when a job description was given. */
   tailoring?: Tailoring;
   createdAt: Date;
 };
@@ -43,11 +36,7 @@ export async function getDraft(userId: string): Promise<ResumeDraft | null> {
   return (await drafts()).findOne({ _id: userId });
 }
 
-/**
- * Upserts the whole answer set on every step change. The payload is a handful
- * of text fields, so a full replace is cheaper than diffing and removes any
- * chance of the client and server disagreeing about which step is current.
- */
+// Replaces the whole draft each time; it's small, so no diffing needed.
 export async function saveDraft(
   userId: string,
   answers: Answers,
@@ -84,10 +73,7 @@ export async function insertResume(
   return result.insertedId.toHexString();
 }
 
-/**
- * Scoped by userId as well as id, so a guessed ObjectId from another account
- * returns null rather than someone else's resume.
- */
+// Filter by userId too, so a guessed id can't return someone else's resume.
 export async function getResume(userId: string, id: string): Promise<StoredResume | null> {
   if (!ObjectId.isValid(id)) return null;
   return (await resumes()).findOne({ _id: new ObjectId(id), userId });

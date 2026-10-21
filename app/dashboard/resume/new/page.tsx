@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import Footer from "@/components/Footer";
-import Navbar from "@/components/Navbar";
 import ResumeWizard from "@/components/ResumeWizard";
 import { EMPTY_ANSWERS } from "@/lib/resume";
 import { getDraft } from "@/lib/resume-store";
@@ -11,22 +9,19 @@ export const metadata: Metadata = {
   title: "Build your resume — Strategy-AI",
 };
 
-// The draft is per-user and changes as the user types; nothing here is cacheable.
+// Per-user draft; never cache.
 export const dynamic = "force-dynamic";
 
 export default async function NewResumePage() {
   const userId = await currentUserId();
-  // middleware.ts already gates /dashboard, but the wizard needs a concrete id
-  // to scope the draft, so bail rather than render with none.
+  // Middleware guards this too, but we need the id to load the draft.
   if (!userId) redirect("/login");
 
-  // Resuming happens on the server: the saved step and answers are rendered
-  // into the first paint, so a refresh mid-wizard is invisible to the user.
+  // Load the draft on the server so a refresh resumes where the user left off.
   const draft = await getDraft(userId);
 
   return (
     <>
-      <Navbar />
       <main className="flex-grow pt-[104px]">
         <section className="px-margin-mobile md:px-margin-desktop max-w-3xl mx-auto py-12 md:py-16 flex flex-col gap-10">
           <div className="flex flex-col gap-3">
@@ -47,7 +42,6 @@ export default async function NewResumePage() {
           />
         </section>
       </main>
-      <Footer />
     </>
   );
 }

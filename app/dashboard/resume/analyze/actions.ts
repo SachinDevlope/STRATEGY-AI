@@ -16,31 +16,29 @@ import {
   type StoredJobDescription,
 } from "@/lib/analysis-store";
 import { deletePdf, getUploadedPdfBytes, headPdf } from "@/lib/blob";
+import { UserError, userMessage } from "@/lib/errors";
 import { generateInterviewReport } from "@/lib/interview-report";
 import { extractPdfText } from "@/lib/pdf/extract";
+import { limitAi } from "@/lib/rate-limit";
 import { requireUserId } from "@/lib/session";
 
-/** The job description half of a request, shared by both analysis routes. */
+/** Job description part of a request: a saved id, or new text to save. */
 export type JobInput = {
-  /** Reuse a job description already saved by this user. */
   jobDescriptionId?: string;
-  /** Or supply a new one, which is saved so it can be reused later. */
   jobTitle?: string;
   jobCompany?: string;
   jobText?: string;
 };
 
-/** What the client sends once the browser's direct Blob upload has finished. */
+/** Sent after the browser finishes its direct Blob upload. */
 export type AnalyzeInput = JobInput & {
-  /** Blob pathname returned by upload(). Authoritative — the URL is not. */
+  /** Blob pathname from upload(). */
   pathname: string;
-  url: string;
   fileName: string;
 };
 
-/** What the client sends when the candidate typed their own description instead. */
+/** Sent when the user typed their resume instead of uploading. */
 export type AnalyzeTextInput = JobInput & {
-  /** Resume text or a self-description, pasted into the box. */
   resumeText: string;
 };
 
@@ -48,31 +46,26 @@ export type AnalyzeResult =
   | { ok: true; analysisId: string }
   | { ok: false; error: string };
 
-/**
- * Resolves the job description the analysis runs against: either one the user
- * already saved, or a newly pasted one, which is persisted first so the stored
- * analysis always points at the exact text it was scored against.
- */
+/** Loads a saved JD, or validates and saves a new one. */
 async function resolveJobDescription(
   userId: string,
   input: JobInput
 ): Promise<StoredJobDescription> {
   if (input.jobDescriptionId) {
     const existing = await getJobDescription(userId, input.jobDescriptionId);
-    if (!existing) throw new Error("That job description no longer exists.");
+    if (!existing) throw new UserError("That job description no longer exists.");
     return existing;
   }
 
   const text = input.jobText?.trim() ?? "";
   if (text.length < MIN_JD_CHARS) {
-    throw new Error("Paste the full job description — a line or two is not enough to score against.");
+    throw new UserError("Paste the full job description — a line or two is not enough to score against.");
   }
 
-  // Saved descriptions are picked from a list later, so an unnamed one is
-  // unusable. Rejected rather than defaulted to a placeholder title.
+  // Saved JDs are picked by name later, so a title is required.
   const title = input.jobTitle?.trim().slice(0, 120);
   if (!title) {
-    throw new Error("Name the role — that is how you will recognise this description later.");
+    throw new UserError("Name the role — that is how you will recognise this description later.");
   }
 
   return insertJobDescription(userId, {
@@ -83,46 +76,41 @@ async function resolveJobDescription(
 }
 
 /**
- * Runs after the browser has uploaded the PDF straight to Blob storage. Reads
- * the file back, extracts its text, scores it against the job description, and
- * stores the blob URL alongside the analysis.
- *
- * Every failure path deletes the orphaned upload, so a resume that could not be
- * analysed does not sit in the store with nothing pointing at it.
+ * Scores an uploaded PDF against a job description.
+ * On any failure the upload is deleted so no orphan blobs are left.
  */
 export async function analyzeUploadAction(input: AnalyzeInput): Promise<AnalyzeResult> {
   let userId: string;
   try {
     userId = await requireUserId();
-  } catch {
-    return { ok: false, error: "Your session expired. Sign in again to continue." };
+  } catch (error) {
+    return { ok: false, error: userMessage(error, "Sign in again to continue.") };
   }
 
-  // The client controls this string, so it is re-checked here rather than
-  // trusted because the token check already passed.
+  // Client-controlled, so re-check ownership here.
   if (!input.pathname?.startsWith(uploadPrefix(userId))) {
     return { ok: false, error: "That upload does not belong to this account." };
   }
 
   try {
+    await limitAi(userId);
     const jd = await resolveJobDescription(userId, input);
 
-    // head() confirms the blob really landed and is the size and type the token
-    // allowed — the client's own report of either is not evidence.
+    // Trust the stored blob's size and type, not the client.
     const meta = await headPdf(input.pathname);
     if (meta.size > MAX_UPLOAD_BYTES) {
-      throw new Error("That file is larger than the 10 MB limit.");
+      throw new UserError("That file is larger than the 10 MB limit.");
     }
     if (meta.contentType !== "application/pdf") {
-      throw new Error("Only PDF resumes can be analysed.");
+      throw new UserError("Only PDF resumes can be analysed.");
     }
 
     const bytes = await getUploadedPdfBytes(input.pathname);
-    if (!bytes) throw new Error("The uploaded file could not be read back.");
+    if (!bytes) throw new UserError("The uploaded file could not be read back.");
 
     const resumeText = await extractPdfText(bytes);
     if (resumeText.length < MIN_RESUME_CHARS) {
-      throw new Error(
+      throw new UserError(
         "No readable text in that PDF. It looks like a scan or an image — " +
           "export the resume from your editor as a text PDF and upload again."
       );
@@ -138,9 +126,9 @@ export async function analyzeUploadAction(input: AnalyzeInput): Promise<AnalyzeR
     const analysisId = await insertAnalysis({
       userId,
       source: "pdf",
-      resumeUrl: input.url,
+      resumeUrl: meta.url,
       resumePathname: input.pathname,
-      fileName: input.fileName.slice(0, 200),
+      fileName: String(input.fileName ?? "").slice(0, 200),
       fileSize: meta.size,
       jobDescriptionId: jd._id,
       jobTitle: jd.title,
@@ -150,37 +138,26 @@ export async function analyzeUploadAction(input: AnalyzeInput): Promise<AnalyzeR
     return { ok: true, analysisId };
   } catch (error) {
     await discardUpload(input.pathname);
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Could not analyse that resume.",
-    };
+    return { ok: false, error: userMessage(error, "Could not analyse that resume. Try again.") };
   }
 }
 
-/**
- * The same analysis without a file: the candidate typed a resume or a plain
- * self-description into the box. Nothing is uploaded, so there is nothing to
- * clean up on failure.
- */
+/** Same analysis from typed text. Nothing to clean up on failure. */
 export async function analyzeTextAction(
   input: AnalyzeTextInput
 ): Promise<AnalyzeResult> {
-  let userId: string;
   try {
-    userId = await requireUserId();
-  } catch {
-    return { ok: false, error: "Your session expired. Sign in again to continue." };
-  }
+    const userId = await requireUserId();
 
-  try {
     const resumeText = input.resumeText?.trim() ?? "";
     if (resumeText.length < MIN_PASTED_RESUME_CHARS) {
-      throw new Error(
+      throw new UserError(
         "Write a bit more about yourself — roles, tools, and what you have " +
           "actually built. A couple of lines cannot be scored."
       );
     }
 
+    await limitAi(userId);
     const jd = await resolveJobDescription(userId, input);
 
     const analysis = await generateInterviewReport({
@@ -200,15 +177,11 @@ export async function analyzeTextAction(
 
     return { ok: true, analysisId };
   } catch (error) {
-    return {
-      ok: false,
-      error:
-        error instanceof Error ? error.message : "Could not analyse that description.",
-    };
+    return { ok: false, error: userMessage(error, "Could not analyse that description. Try again.") };
   }
 }
 
-/** Best-effort cleanup — a failed delete must not mask the original error. */
+/** Best effort — a failed delete must not hide the original error. */
 async function discardUpload(pathname: string) {
   try {
     await deletePdf(pathname);

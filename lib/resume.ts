@@ -1,13 +1,7 @@
 import { z } from "zod";
 
-/**
- * The structured resume the model must return. This is the contract between
- * generateObject() and the PDF renderer — every field the template draws is
- * declared here, and nothing else is trusted.
- *
- * Dates are free-text strings ("Jan 2023", "Present") rather than real dates:
- * resumes print them verbatim and users rarely supply a parseable format.
- */
+// Shape of the AI-generated resume that the PDF renders.
+// Dates are plain text ("Jan 2023", "Present") since they're printed as-is.
 export const resumeSchema = z.object({
   contact: z.object({
     fullName: z.string(),
@@ -76,15 +70,8 @@ export const resumeSchema = z.object({
 
 export type Resume = z.infer<typeof resumeSchema>;
 
-/**
- * The keyword read on a job description. Returned alongside a tailored resume
- * so the user can see what the rewrite actually caught — a claim of "tailored"
- * with nothing to show for it is not checkable.
- *
- * `missing` is what the JD asks for and the answers never mentioned. It is
- * deliberately not written into the resume: inventing a skill to pass a screen
- * is what gets a candidate caught in the interview.
- */
+// JD keywords the tailored resume matched, shown to the user.
+// `missing` skills are never added to the resume: no invented skills.
 export const tailoringSchema = z.object({
   matched: z
     .array(z.string())
@@ -96,19 +83,16 @@ export const tailoringSchema = z.object({
 
 export type Tailoring = z.infer<typeof tailoringSchema>;
 
-/** One call returns both, so the keyword read and the rewrite cannot disagree. */
+// One call returns both so they can't disagree.
 export const tailoredResumeSchema = z.object({
   resume: resumeSchema,
   tailoring: tailoringSchema,
 });
 
-/** Job descriptions run long; anything past this is padding (legal, benefits). */
+// Text past this is usually padding (legal, benefits).
 export const MAX_JOB_DESCRIPTION = 12000;
 
-/**
- * The eight wizard questions, in order. `id` is the answer key persisted in the
- * draft, so renaming one orphans existing drafts — add a new id instead.
- */
+// Wizard questions in order. Don't rename an `id`: saved drafts use it.
 export const QUESTIONS = [
   {
     id: "contact",
@@ -176,16 +160,13 @@ export const QUESTIONS = [
 
 export type QuestionId = (typeof QUESTIONS)[number]["id"];
 
-/** Wizard answers keyed by question id. Every step is free text. */
+// Free-text answers keyed by question id.
 export type Answers = Partial<Record<QuestionId, string>>;
 
 export const EMPTY_ANSWERS: Answers = {};
 
-/**
- * Only the target role and work history are load-bearing; the model can produce
- * a usable document without the optional sections.
- */
-export const REQUIRED_QUESTIONS: QuestionId[] = ["contact", "target", "experience"];
+// Required answers; the AI can do without the rest.
+const REQUIRED_QUESTIONS: QuestionId[] = ["contact", "target", "experience"];
 
 export function missingRequired(answers: Answers): QuestionId[] {
   return REQUIRED_QUESTIONS.filter((id) => !answers[id]?.trim());

@@ -1,12 +1,11 @@
 import { renderToBuffer } from "@react-pdf/renderer";
-import { putPdf, pdfPathname } from "@/lib/blob";
 import { notFound, unauthorized } from "@/lib/http";
 import { pdfHeaders } from "@/lib/pdf-response";
 import { currentUserId } from "@/lib/session";
 import { resumeDocument } from "@/lib/pdf/ResumeDocument";
 import { getResume } from "@/lib/resume-store";
 
-// The PDF renderer needs Node.js APIs, and every response is user-specific.
+// PDF rendering needs Node.js; every response is per user.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -23,21 +22,12 @@ export async function GET(
   if (!userId) return unauthorized();
 
   const { id } = await params;
-  // getResume() filters on userId, so a valid id belonging to someone else is
-  // indistinguishable from one that does not exist.
+  // Scoped by userId: someone else's id reads as not found.
   const stored = await getResume(userId, id);
   if (!stored) return notFound();
 
+  // Rendered on demand; resumes are small and this keeps the PDF in sync with the template.
   const buffer = await renderToBuffer(resumeDocument(stored.data));
-
-  // Mirror the file into private Blob storage so a re-download does not depend
-  // on the renderer, and so the PDF outlives this request. A failure here is
-  // not worth failing the download over.
-  try {
-    await putPdf(pdfPathname(userId, id), buffer);
-  } catch (error) {
-    console.error("Failed to persist resume PDF to Blob:", error);
-  }
 
   return new Response(new Uint8Array(buffer), {
     headers: pdfHeaders(request, fileName(stored.data.contact.fullName), {

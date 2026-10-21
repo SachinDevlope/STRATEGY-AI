@@ -7,10 +7,7 @@ import {
   type Analysis,
 } from "@/lib/analysis";
 
-/**
- * One generation plus at most one repair round. More rounds mostly burn latency
- * on a request the user is already waiting on.
- */
+/** One try plus one repair round — more just adds wait time. */
 const MAX_PLAN_ATTEMPTS = 2;
 
 const SEVERITY_ORDER: Record<string, number> = Object.fromEntries(
@@ -19,11 +16,8 @@ const SEVERITY_ORDER: Record<string, number> = Object.fromEntries(
 
 const normalizeSkill = (skill: string) => String(skill ?? "").trim().toLowerCase();
 
-/**
- * Skill gaps that no day of the preparation plan addresses. These are the gaps
- * the candidate was told about but given no way to close.
- */
-function findUncoveredSkills(report: Analysis): string[] {
+/** Skill gaps that no plan day covers. */
+export function findUncoveredSkills(report: Analysis): string[] {
   const planned = new Set(
     report.preparationPlan.flatMap((day) => day.skills.map(normalizeSkill))
   );
@@ -32,12 +26,8 @@ function findUncoveredSkills(report: Analysis): string[] {
     .map((gap) => gap.skill);
 }
 
-/**
- * Everything the report is short of. The decoder guarantees the shape but not
- * the counts, so they are checked here and named back to the model in the same
- * repair round that fixes an incomplete preparation plan.
- */
-function findShortfalls(report: Analysis): string[] {
+/** What the report is missing; sent back to the model to fix. */
+export function findShortfalls(report: Analysis): string[] {
   const problems: string[] = [];
 
   if (report.technicalQuestions.length < MIN_TECHNICAL_QUESTIONS) {
@@ -71,11 +61,10 @@ function findShortfalls(report: Analysis): string[] {
 }
 
 /**
- * Enforces the plan invariants in code rather than trusting the model: drops
- * day skills that are not real gaps, orders days by the worst severity they
- * close, and renumbers days so they always read 1..n.
+ * Cleans the plan: keeps only real gap skills, sorts days by worst severity,
+ * renumbers days 1..n, and clamps matchScore to 0-100.
  */
-function normalizePreparationPlan(report: Analysis): Analysis {
+export function normalizePreparationPlan(report: Analysis): Analysis {
   const severityBySkill = new Map(
     report.skillGap.map((gap) => [normalizeSkill(gap.skill), gap.severity])
   );
@@ -84,20 +73,16 @@ function normalizePreparationPlan(report: Analysis): Analysis {
     const ranks = day.skills
       .map((skill) => SEVERITY_ORDER[severityBySkill.get(normalizeSkill(skill)) ?? ""])
       .filter((rank) => rank !== undefined);
-    // A day tied to no known gap sorts last instead of jumping to the front.
+    // Days with no known gap go last.
     return ranks.length ? Math.min(...ranks) : SEVERITIES.length;
   };
 
-  // A model that ignores the 0-100 instruction must not put "1200%" on the
-  // results page, and it is not worth failing a whole report over.
   const matchScore = Math.max(0, Math.min(100, Math.round(report.matchScore)));
 
   const preparationPlan = [...report.preparationPlan]
     .map((day) => ({
       ...day,
-      // Keep only skills that exist in skillGap, so the UI can always link a
-      // day back to a listed gap. Days left with no valid skill keep their
-      // tasks rather than being dropped — the work is still useful.
+      // Days left with no valid skill keep their tasks.
       skills: day.skills.filter((skill) => severityBySkill.has(normalizeSkill(skill))),
     }))
     .sort(
@@ -153,19 +138,14 @@ function buildPrompt(input: {
 }
 
 /**
- * Turns extracted resume text and a job description into a validated interview
- * report.
- *
- * The plan is only useful if it actually closes the gaps that were found, and
- * the model does drop one occasionally. Rather than failing the whole request
- * or shipping a plan with holes, the misses are named back to the model once.
+ * Resume text + job description -> validated interview report.
+ * If the first reply has gaps, the model is asked once to fix them.
  */
 export async function generateInterviewReport(input: {
   resumeText: string;
   jobTitle: string;
   jobCompany?: string;
   jobText: string;
-  abortSignal?: AbortSignal;
 }): Promise<Analysis> {
   if (!input.resumeText.trim()) throw new Error("A resume is required.");
 
@@ -180,7 +160,6 @@ export async function generateInterviewReport(input: {
     const { object, content } = await generateStructuredRaw(analysisSchema, {
       messages,
       schemaName: "interview_report",
-      abortSignal: input.abortSignal,
     });
 
     report = object;
@@ -188,7 +167,7 @@ export async function generateInterviewReport(input: {
     if (!problems.length) break;
 
     if (attempt === MAX_PLAN_ATTEMPTS) {
-      // A thin report still beats no report: the page renders what is there.
+      // A thin report beats no report.
       console.warn(`Interview report still incomplete: ${problems.join("; ")}`);
       break;
     }
@@ -204,6 +183,5 @@ export async function generateInterviewReport(input: {
     });
   }
 
-  // The loop always assigns on its first iteration or throws.
   return normalizePreparationPlan(report!);
 }

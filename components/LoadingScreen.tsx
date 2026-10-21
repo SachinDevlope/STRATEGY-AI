@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { lockBodyScroll } from "@/lib/scroll-lock";
 import { BASE_META, type LoadingMeta } from "@/lib/loading";
 import { BRAND_ICON } from "@/lib/brand";
@@ -14,30 +14,25 @@ export type LoadingStep = {
 };
 
 export type LoadingScreenProps = {
-  /** Card header title, e.g. "Analysis Node Alpha". */
+  /** Card header title. */
   node?: string;
-  /** Icon shown next to the header title (Material Symbols name). */
+  /** Material Symbols name. */
   nodeIcon?: string;
-  /** Optional pill on the right of the header. Off by default. */
+  /** Header pill. Off by default. */
   badge?: string | null;
-  /** Big line inside the card. */
   heading?: string;
-  /** Supporting sentence under the heading. */
   message?: string;
-  /** Large background icon behind the spinner (Material Symbols name). */
+  /** Material Symbols name. */
   icon?: string;
-  /** Right-hand status word in the footer grid. */
   status?: string;
-  /** Footer grid rows. Pass [] to drop the footer entirely. */
+  /** Pass [] to hide the footer. */
   meta?: LoadingMeta[];
-  /** Optional checklist so a long wait shows where it has got to. */
   steps?: LoadingStep[];
-  /**
-   * 0–100. Omit while the work has no measurable progress — the bar then
-   * sweeps instead of faking a percentage.
-   */
+  /** 0–100. Omit to show a sweeping bar instead of a fake percentage. */
   progress?: number;
 };
+
+const DEFAULT_HEADING = "Your analysis is being prepared";
 
 const DEFAULT_META: LoadingMeta[] = [
   ...BASE_META,
@@ -45,16 +40,12 @@ const DEFAULT_META: LoadingMeta[] = [
   { label: "Backups", value: "Active Stream", highlight: true },
 ];
 
-/**
- * The waiting state for anything slow — an API call, a model run, a route
- * transition. Card layout mirrors the rest of the cyber-glass theme so the
- * page does not visibly change shape once the real content lands.
- */
+/** Loading card for slow work (API calls, AI runs, route changes). */
 export default function LoadingScreen({
   node = "Analysis Node Alpha",
   nodeIcon = BRAND_ICON,
   badge = null,
-  heading = "Your analysis is being prepared",
+  heading = DEFAULT_HEADING,
   message = "New analysis typically takes between 1–3 minutes to complete. We are optimising neural pathways.",
   icon = "cloud_upload",
   status = "Provisioning",
@@ -72,7 +63,7 @@ export default function LoadingScreen({
       aria-busy="true"
       className="loading-sweep relative w-full max-w-3xl glass-panel rounded-xl shadow-[0_4px_40px_rgba(0,0,0,0.55)] overflow-hidden flex flex-col"
     >
-      {/* Header ------------------------------------------------------- */}
+      {/* Header */}
       <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-white/5 bg-surface-container-high/40">
         <div className="flex items-center gap-3 min-w-0">
           <span
@@ -92,9 +83,8 @@ export default function LoadingScreen({
         )}
       </div>
 
-      {/* Body --------------------------------------------------------- */}
+      {/* Body */}
       <div className="relative flex flex-col items-center text-center gap-5 px-6 py-12 md:py-16">
-        {/* Soft cyan bloom behind the spinner. */}
         <div
           aria-hidden
           className="absolute top-10 w-56 h-56 bg-primary-container/10 rounded-full blur-3xl pointer-events-none"
@@ -129,8 +119,7 @@ export default function LoadingScreen({
             </p>
           </div>
 
-          {/* Progress bar — real percentage when there is one, a sweeping
-              segment when there is not. A full static bar reads as frozen. */}
+          {/* Sweeps when progress is unknown; a static bar looks frozen. */}
           <div className="w-full max-w-sm flex flex-col gap-2">
             <div className="h-1 rounded-full bg-outline-variant/40 overflow-hidden">
               <div
@@ -182,7 +171,7 @@ export default function LoadingScreen({
         </div>
       </div>
 
-      {/* Footer ------------------------------------------------------- */}
+      {/* Footer */}
       {meta.length > 0 && (
         <div className="px-6 py-4 bg-surface-container-high/30 border-t border-white/5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-4">
           {meta.map((row) => (
@@ -218,30 +207,29 @@ export default function LoadingScreen({
   );
 }
 
-/**
- * Full-page version: same card, centred on a blurred backdrop. Use while a
- * client-side action blocks the page the user is already looking at.
- */
+/** Full-screen overlay version, for client actions that block the page. */
 export function LoadingOverlay(props: LoadingScreenProps) {
-  // The page behind is not interactive while this is up, so let it not scroll
-  // away underneath either.
+  // Stop the page behind from scrolling.
   useEffect(() => lockBodyScroll(), []);
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => dialogRef.current?.focus(), []);
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-background/85 backdrop-blur-md px-margin-mobile md:px-margin-desktop py-10"
+      aria-label={props.heading ?? DEFAULT_HEADING}
+      tabIndex={-1}
+      className="fixed inset-0 outline-none z-[100] flex items-center justify-center overflow-y-auto bg-background/85 backdrop-blur-md px-margin-mobile md:px-margin-desktop py-10"
     >
       <LoadingScreen {...props} />
     </div>
   );
 }
 
-/**
- * Route-level version: pads for the fixed navbar so a loading.tsx file drops
- * in without each route repeating the layout.
- */
+/** Route version for loading.tsx; pads for the fixed navbar. */
 export function LoadingPage(props: LoadingScreenProps) {
   return (
     <main className="flex-grow pt-[104px] pb-16 px-margin-mobile md:px-margin-desktop flex items-start md:items-center justify-center min-h-[70vh]">

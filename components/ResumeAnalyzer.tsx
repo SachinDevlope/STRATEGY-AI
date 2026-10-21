@@ -28,7 +28,7 @@ export type JobDescriptionOption = {
 const NEW_JD = "new";
 
 type Phase = "idle" | "uploading" | "analyzing";
-/** Where the candidate half comes from: an uploaded PDF or text typed here. */
+// Resume source: uploaded PDF or pasted text.
 type Source = "pdf" | "text";
 
 export default function ResumeAnalyzer({
@@ -44,8 +44,7 @@ export default function ResumeAnalyzer({
   const [source, setSource] = useState<Source>("pdf");
   const [file, setFile] = useState<File | null>(null);
   const [resumeText, setResumeText] = useState("");
-  // Pasting a new description is the common case, so that is what the step
-  // opens on. Saved ones stay one click away behind the toggle.
+  // Default to a new JD, the common case.
   const [jdChoice, setJdChoice] = useState<string>(NEW_JD);
   const [pickingSaved, setPickingSaved] = useState(false);
   const [jobTitle, setJobTitle] = useState("");
@@ -80,7 +79,7 @@ export default function ResumeAnalyzer({
     pick(event.dataTransfer.files?.[0]);
   }
 
-  /** Client-side mirror of the server's checks, so mistakes surface instantly. */
+  // Same checks as the server, for instant feedback.
   function firstProblem(): string | null {
     if (usingText) {
       if (resumeText.trim().length < MIN_PASTED_RESUME_CHARS) {
@@ -93,8 +92,7 @@ export default function ResumeAnalyzer({
       return "Choose a PDF resume first.";
     }
     if (usingNewJd) {
-      // Named here or it is unfindable later — an untitled row in the saved
-      // list tells the user nothing.
+      // Needed so the saved JD can be found later.
       if (!jobTitle.trim()) {
         return "Name the role — that is how you will recognise this description later.";
       }
@@ -105,7 +103,7 @@ export default function ResumeAnalyzer({
     return null;
   }
 
-  /** The half of the request that names the job, identical for both sources. */
+  // Job fields, shared by both sources.
   function jobFields() {
     return usingNewJd
       ? { jobTitle, jobCompany, jobText }
@@ -124,13 +122,19 @@ export default function ResumeAnalyzer({
 
     if (usingText) {
       setPhase("analyzing");
-      const result = await analyzeTextAction({ resumeText, ...jobFields() });
-      if (!result.ok) {
-        setError(result.error);
+      try {
+        const result = await analyzeTextAction({ resumeText, ...jobFields() });
+        if (!result.ok) {
+          setError(result.error);
+          setPhase("idle");
+          return;
+        }
+        router.push(`/dashboard/resume/analyze/${result.analysisId}`);
+      } catch {
+        // Network drop or timeout — don't leave the overlay stuck.
+        setError("Could not reach the server. Check your connection and try again.");
         setPhase("idle");
-        return;
       }
-      router.push(`/dashboard/resume/analyze/${result.analysisId}`);
       return;
     }
 
@@ -138,10 +142,8 @@ export default function ResumeAnalyzer({
     setPhase("uploading");
 
     try {
-      // The file goes straight from the browser to Blob storage. Nothing but a
-      // signed token passes through the app, so a 10 MB resume never has to fit
-      // inside a server request body. Files past the threshold upload in
-      // parallel parts, which also lets a failed part retry on its own.
+      // Upload straight to Blob so big files skip our server.
+      // Large files go in parallel parts that retry on their own.
       const blob = await upload(
         `${uploadPrefix(userId)}${safeFileName(file.name)}`,
         file,
@@ -158,7 +160,6 @@ export default function ResumeAnalyzer({
 
       const result = await analyzeUploadAction({
         pathname: blob.pathname,
-        url: blob.url,
         fileName: file.name,
         ...jobFields(),
       });
@@ -194,8 +195,7 @@ export default function ResumeAnalyzer({
           }
           icon={phase === "uploading" ? "cloud_upload" : "neurology"}
           status={phase === "uploading" ? "Uploading" : "Analysing"}
-          // Only the upload reports real bytes; the model run has no
-          // percentage, so the bar sweeps instead of faking movement.
+          // Only the upload has real progress; the AI step just sweeps.
           {...(phase === "uploading" ? { progress } : {})}
           steps={
             usingText
@@ -240,7 +240,7 @@ export default function ResumeAnalyzer({
           {usingText ? "Describe yourself" : "Upload your resume"}
         </h2>
 
-        <div className="flex gap-2" role="tablist">
+        <div className="flex gap-2" role="group" aria-label="Resume source">
           {(
             [
               ["pdf", "Upload a PDF"],
@@ -250,8 +250,7 @@ export default function ResumeAnalyzer({
             <button
               key={value}
               type="button"
-              role="tab"
-              aria-selected={source === value}
+              aria-pressed={source === value}
               disabled={busy}
               onClick={() => {
                 setSource(value);
@@ -274,6 +273,7 @@ export default function ResumeAnalyzer({
               value={resumeText}
               rows={12}
               disabled={busy}
+              aria-label="Resume text"
               placeholder="Paste your resume, or write about yourself: roles and how long, the tools you use, what you have built, education, anything you are proud of."
               onChange={(event) => setResumeText(event.target.value)}
               className="w-full bg-surface-container-lowest border border-outline-variant/60 focus:border-primary focus:outline-none rounded-xl p-4 text-body-md text-on-surface placeholder:text-on-surface-variant/40 resize-y transition-colors"
@@ -295,8 +295,8 @@ export default function ResumeAnalyzer({
             dragging ? "border-primary bg-primary/5" : "border-outline-variant/60"
           } ${busy ? "opacity-60" : ""}`}
         >
-          <span className="material-symbols-outlined text-primary">upload_file</span>
-          <p className="text-body-md text-on-surface">
+          <span aria-hidden className="material-symbols-outlined text-primary">upload_file</span>
+          <p className="text-body-md text-on-surface break-all max-w-full">
             {file ? file.name : "Drop your PDF here"}
           </p>
           <p className="text-body-sm text-on-surface-variant">
@@ -317,7 +317,11 @@ export default function ResumeAnalyzer({
             type="file"
             accept="application/pdf,.pdf"
             className="hidden"
-            onChange={(event) => pick(event.target.files?.[0])}
+            onChange={(event) => {
+              pick(event.target.files?.[0]);
+              // Reset so picking the same file again still fires onChange.
+              event.target.value = "";
+            }}
           />
         </div>
         )}
@@ -353,9 +357,7 @@ export default function ResumeAnalyzer({
           )}
         </div>
 
-        {/* A list rather than a <select>: the first line of each description is
-            what tells two similar roles apart, and a native dropdown cannot
-            show it. Scrolls once there are more than a few. */}
+        {/* A list, not a <select>, so each JD's preview line is visible. */}
         {pickingSaved && (
           <div
             role="radiogroup"
@@ -412,6 +414,7 @@ export default function ResumeAnalyzer({
               <input
                 value={jobTitle}
                 disabled={busy}
+                aria-label="Role title"
                 placeholder="Role title — e.g. Senior Backend Engineer"
                 onChange={(event) => setJobTitle(event.target.value)}
                 className="bg-surface-container-lowest border border-outline-variant/60 focus:border-primary focus:outline-none rounded-xl p-4 text-body-md text-on-surface placeholder:text-on-surface-variant/40 transition-colors"
@@ -419,6 +422,7 @@ export default function ResumeAnalyzer({
               <input
                 value={jobCompany}
                 disabled={busy}
+                aria-label="Company"
                 placeholder="Company (optional)"
                 onChange={(event) => setJobCompany(event.target.value)}
                 className="bg-surface-container-lowest border border-outline-variant/60 focus:border-primary focus:outline-none rounded-xl p-4 text-body-md text-on-surface placeholder:text-on-surface-variant/40 transition-colors"
@@ -428,6 +432,7 @@ export default function ResumeAnalyzer({
               value={jobText}
               rows={10}
               disabled={busy}
+              aria-label="Job description"
               placeholder="Paste the full job description — responsibilities, requirements, the lot."
               onChange={(event) => setJobText(event.target.value)}
               className="w-full bg-surface-container-lowest border border-outline-variant/60 focus:border-primary focus:outline-none rounded-xl p-4 text-body-md text-on-surface placeholder:text-on-surface-variant/40 resize-y transition-colors"
@@ -465,11 +470,7 @@ export default function ResumeAnalyzer({
   );
 }
 
-/**
- * The SDK reports every token-route failure as "Failed to retrieve the client
- * token" and does not pass the route's response body through, so the two causes
- * a user can act on are split out here. The real reason is in the server log.
- */
+// The SDK hides the real error, so map it to a helpful message.
 function uploadMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
   if (/client token/i.test(message)) {

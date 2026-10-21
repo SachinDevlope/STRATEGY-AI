@@ -7,9 +7,9 @@ export default function StatsStrip() {
         {STATS.map((stat) => (
           <div
             key={stat.label}
-            className="glass-panel glass-panel-glow rounded-xl px-6 py-8 text-center"
+            className="glass-panel glass-panel-glow rounded-xl px-3 py-6 md:px-6 md:py-8 text-center min-w-0"
           >
-            <p className="font-mono text-3xl md:text-4xl font-bold text-primary-fixed tracking-tight">
+            <p className="font-mono text-2xl md:text-4xl font-bold text-primary-fixed tracking-tight">
               {stat.value}
             </p>
             <p className="font-label-caps text-label-caps uppercase text-on-surface-variant mt-3">

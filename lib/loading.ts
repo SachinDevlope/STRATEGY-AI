@@ -3,15 +3,12 @@ import type { ReactNode } from "react";
 export type LoadingMeta = {
   label: string;
   value: ReactNode;
-  /** Renders the value in the cyan accent — use for the live/active row. */
+  /** Show the value in the cyan accent. */
   highlight?: boolean;
 };
 
-/**
- * Rows every loading screen carries; callers spread this and append their own.
- * Lives outside the client component so server components (loading.tsx files)
- * import the real array rather than a client-reference proxy.
- */
+// Shared footer rows. Kept out of the client component so server
+// loading.tsx files get the real array.
 export const BASE_META: LoadingMeta[] = [
   { label: "Version", value: "8.0.29-AI" },
   { label: "Region", value: "Global AI Hub" },

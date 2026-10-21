@@ -6,23 +6,15 @@ const globalWithMongo = global as typeof globalThis & {
   _mongoClientPromise?: Promise<MongoClient>;
 };
 
-/**
- * Connects lazily. The URI is read on first call, not at import time, so
- * importing this module during `next build` (page-data collection) does not
- * require MONGODB_URI to be present in the build environment.
- *
- * In development the module is reloaded on every edit, which would open a new
- * connection each time, so the promise is cached on the global object and the
- * pool is reused across hot reloads.
- */
+// Connects on first call, so `next build` works without MONGODB_URI.
+// Cached on `global` so dev hot reloads reuse one connection.
 export function getClientPromise(): Promise<MongoClient> {
   if (!globalWithMongo._mongoClientPromise) {
     const uri = process.env.MONGODB_URI;
     if (!uri) {
       throw new Error('Missing environment variable "MONGODB_URI".');
     }
-    // A rejected promise left in the cache would fail every later request for
-    // the lifetime of the instance, so drop it and let the next call retry.
+    // Drop a failed connection from the cache so the next call retries.
     const pending = new MongoClient(uri, options).connect();
     pending.catch(() => {
       if (globalWithMongo._mongoClientPromise === pending) {
@@ -34,12 +26,7 @@ export function getClientPromise(): Promise<MongoClient> {
   return globalWithMongo._mongoClientPromise;
 }
 
-export default getClientPromise;
-
-/**
- * Returns the database named in MONGODB_URI (currently "Gen-Ai").
- * Use this for application collections; Auth.js manages its own via the adapter.
- */
+/** The database named in MONGODB_URI. Auth.js manages its own collections. */
 export async function getDb(): Promise<Db> {
   const connected = await getClientPromise();
   return connected.db();

@@ -1,8 +1,7 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/auth.config";
 
-// Built from the edge-safe config only — importing "@/auth" here would pull the
-// MongoDB driver into the Edge runtime and fail at request time.
+// Use the edge-safe config only; "@/auth" pulls in MongoDB, which breaks on Edge.
 export const { auth: middleware } = NextAuth(authConfig);
 
 export default middleware;

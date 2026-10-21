@@ -1,11 +1,8 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { Resume } from "@/lib/resume";
 
-/**
- * Deliberately plain, single-column A4. Columns, tables, and icons are what
- * break ATS parsers, and the built-in Helvetica needs no font download — so the
- * renderer works offline and in a cold serverless function.
- */
+// Plain single-column A4: columns and icons break ATS parsers.
+// Built-in Helvetica needs no font download.
 const styles = StyleSheet.create({
   page: {
     paddingTop: 36,
@@ -60,15 +57,11 @@ function Bullet({ children }: { children: string }) {
   );
 }
 
-/**
- * Returns the `<Document>` element itself rather than a component wrapping it:
- * renderToBuffer() types its argument as ReactElement<DocumentProps>, which a
- * component element with its own props does not satisfy.
- */
+// Returns a <Document> element, not a component, because renderToBuffer()
+// only accepts ReactElement<DocumentProps>.
 export function resumeDocument(resume: Resume) {
   const { contact } = resume;
-  // Joined into one line so the header stays two rows tall regardless of how
-  // many links the candidate supplied.
+  // One line, so the header stays two rows tall.
   const contactParts = [contact.email, contact.phone, contact.location].filter(Boolean);
   const linkParts = contact.links.map((link) => `${link.label}: ${link.url}`);
 
@@ -170,5 +163,3 @@ export function resumeDocument(resume: Resume) {
     </Document>
   );
 }
-
-export default resumeDocument;

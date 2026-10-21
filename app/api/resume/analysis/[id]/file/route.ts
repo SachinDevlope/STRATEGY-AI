@@ -4,8 +4,7 @@ import { notFound, unauthorized } from "@/lib/http";
 import { pdfHeaders } from "@/lib/pdf-response";
 import { currentUserId } from "@/lib/session";
 
-// Uploads are stored privately, so the blob URL alone opens nothing. Every read
-// comes back through here, where the session is checked first.
+// Uploads are private, so files are served through here after a session check.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -18,13 +17,13 @@ export async function GET(
 
   const { id } = await params;
   const stored = await getAnalysis(userId, id);
-  // A pasted-text analysis has no stored file, so there is nothing to serve.
+  // Pasted-text analyses have no file.
   if (!stored?.resumePathname) return notFound();
 
   const result = await getUploadedPdf(stored.resumePathname);
   if (!result || result.statusCode !== 200) return notFound();
 
-  // Streamed straight through — the file is never buffered in the function.
+  // Stream it; don't buffer in memory.
   return new Response(result.stream, {
     headers: pdfHeaders(request, stored.fileName ?? "resume.pdf"),
   });

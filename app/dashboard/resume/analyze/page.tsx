@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import Footer from "@/components/Footer";
-import Navbar from "@/components/Navbar";
 import ResumeAnalyzer, { type JobDescriptionOption } from "@/components/ResumeAnalyzer";
 import { listAnalyses, listJobDescriptions } from "@/lib/analysis-store";
 import { currentUserId } from "@/lib/session";
@@ -11,13 +9,12 @@ export const metadata: Metadata = {
   title: "Analyse your resume — Strategy-AI",
 };
 
-// Everything here is per-user and changes on every upload.
+// Per-user data; never cache.
 export const dynamic = "force-dynamic";
 
 export default async function AnalyzeResumePage() {
   const userId = await currentUserId();
-  // middleware.ts gates /dashboard, but the uploader needs a concrete id to
-  // scope the blob path, so bail rather than render with none.
+  // Middleware guards this too, but we need the id for the upload path.
   if (!userId) redirect("/login");
 
   const [jobDescriptions, recent] = await Promise.all([
@@ -34,7 +31,6 @@ export default async function AnalyzeResumePage() {
 
   return (
     <>
-      <Navbar />
       <main className="flex-grow pt-[104px]">
         <section className="px-margin-mobile md:px-margin-desktop max-w-3xl mx-auto py-12 md:py-16 flex flex-col gap-10">
           <div className="flex flex-col gap-3">
@@ -80,16 +76,11 @@ export default async function AnalyzeResumePage() {
           )}
         </section>
       </main>
-      <Footer />
     </>
   );
 }
 
-/**
- * First readable line of a pasted description. Descriptions are usually copied
- * out of a job board with markdown syntax intact, so the markers are stripped —
- * the picker shows this raw, not rendered.
- */
+// First readable line of a JD, with markdown symbols stripped.
 function preview(text: string): string {
   return text
     .replace(/[#*_`>]/g, "")

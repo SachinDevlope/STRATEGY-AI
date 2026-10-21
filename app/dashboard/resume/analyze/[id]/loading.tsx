@@ -1,11 +1,9 @@
 import { LoadingPage } from "@/components/LoadingScreen";
 import { BASE_META } from "@/lib/loading";
-import Navbar from "@/components/Navbar";
 
 export default function AnalysisReportLoading() {
   return (
     <>
-      <Navbar />
       <LoadingPage
         node="Analysis Node Alpha"
         icon="description"

@@ -1,9 +1,6 @@
-/**
- * The landing page's section links. Shared by the top nav (signed out) and the
- * profile menu (signed in) so the two can never list different things.
- */
+// Landing page section links, shared by the top nav and the profile menu.
 export const SECTION_LINKS = [
   { href: "/#resume", section: "resume", label: "Resume Builder" },
-  { href: "/#features", section: "features", label: "AI Interviewer" },
+  { href: "/#features", section: "features", label: "Features" },
   { href: "/#star", section: "star", label: "STAR Method" },
 ] as const;

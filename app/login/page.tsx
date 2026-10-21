@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { auth } from "@/auth";
+import { currentUserId } from "@/lib/session";
 import AuthShell from "@/components/AuthShell";
 import CredentialsForm from "@/components/CredentialsForm";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
@@ -14,9 +14,7 @@ export const metadata: Metadata = {
 };
 
 const ERRORS: Record<string, string> = {
-  // Reached only when the browser posts the form without JavaScript, so Auth.js
-  // redirects here instead of the server action returning an inline error. Same
-  // deliberately vague wording as loginWithPassword — no email enumeration.
+  // Only hit when JS is off. Kept vague so it doesn't reveal which emails exist.
   CredentialsSignin:
     "Wrong email or password. If you signed up with Google, use the Google button.",
   OAuthAccountNotLinked:
@@ -31,8 +29,8 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string; callbackUrl?: string }>;
 }) {
-  const session = await auth();
-  if (session?.user) redirect("/dashboard");
+  // currentUserId() also rejects a password session that was revoked.
+  if (await currentUserId()) redirect("/dashboard");
 
   const { error, callbackUrl } = await searchParams;
   const message = error ? (ERRORS[error] ?? "Sign-in failed. Try again.") : null;
@@ -52,8 +50,7 @@ export default async function LoginPage({
       }
     >
       <div className="flex flex-col gap-4">
-        {/* Only OAuth failures land here as a query param; password failures are
-            returned by the server action and rendered inside the form. */}
+        {/* OAuth errors only; password errors show inside the form. */}
         {message ? (
           <p
             role="alert"

@@ -10,21 +10,12 @@ const COLUMNS = [
       { label: "Success Stories", href: "/#stories" },
     ],
   },
-  {
-    heading: "Company",
-    links: [
-      { label: "About Us", href: "#" },
-      { label: "Privacy Policy", href: "#" },
-      { label: "Terms of Service", href: "#" },
-      { label: "Contact Support", href: "#" },
-    ],
-  },
 ];
 
 export default function Footer() {
   return (
     <footer className="bg-surface-container-lowest w-full border-t border-white/5">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-12 px-margin-mobile md:px-margin-desktop py-12 max-w-container-max mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-12 px-margin-mobile md:px-margin-desktop py-12 max-w-container-max mx-auto">
         <div className="flex flex-col gap-4 col-span-1 md:col-span-2">
           <Logo
             className="font-display text-headline-lg font-bold text-on-surface"
