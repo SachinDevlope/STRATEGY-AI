@@ -43,6 +43,11 @@ export function limitAi(userId: string) {
   return rateLimit(`ai:${userId}`, 20, 60 * 60);
 }
 
+/** Live voice sends one short request per spoken phrase, so it gets the largest budget. */
+export function limitTranscription(userId: string) {
+  return rateLimit(`transcribe:${userId}`, 600, 60 * 60);
+}
+
 /** Interview chat turns are small and frequent, so they get their own bigger budget. */
 export function limitInterview(userId: string) {
   return rateLimit(`interview:${userId}`, 120, 60 * 60);

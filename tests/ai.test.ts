@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { backfillArrays, failedGeneration, supportsStrict } from "@/lib/ai";
+import { backfillArrays, failedGeneration, parseModelJson, supportsStrict } from "@/lib/ai";
 
 describe("supportsStrict", () => {
   it("accepts objects where every property is required", () => {
@@ -53,5 +53,21 @@ describe("backfillArrays", () => {
 
   it("leaves non-objects alone", () => {
     expect(backfillArrays([1, 2], schema)).toEqual([1, 2]);
+  });
+});
+
+describe("parseModelJson", () => {
+  it("parses plain JSON", () => {
+    expect(parseModelJson('{"a":1}')).toEqual({ a: 1 });
+  });
+
+  it("strips code fences and surrounding text", () => {
+    expect(parseModelJson('```json\n{"a":1}\n```')).toEqual({ a: 1 });
+    expect(parseModelJson('Here you go: {"a":[1,2]} hope it helps')).toEqual({ a: [1, 2] });
+  });
+
+  it("returns undefined for empty or broken output", () => {
+    expect(parseModelJson("")).toBeUndefined();
+    expect(parseModelJson('{"a": [1, 2')).toBeUndefined();
   });
 });

@@ -157,10 +157,19 @@ export async function generateInterviewReport(input: {
   let report: Analysis | null = null;
 
   for (let attempt = 1; attempt <= MAX_PLAN_ATTEMPTS; attempt++) {
-    const { object, content } = await generateStructuredRaw(analysisSchema, {
-      messages,
-      schemaName: "interview_report",
-    });
+    let result: Awaited<ReturnType<typeof generateStructuredRaw<Analysis>>>;
+    try {
+      result = await generateStructuredRaw(analysisSchema, {
+        messages,
+        schemaName: "interview_report",
+      });
+    } catch (error) {
+      // A failed repair round must not throw away the report we already have.
+      if (!report) throw error;
+      console.warn("Repair round failed; keeping the first report.", error);
+      break;
+    }
+    const { object, content } = result;
 
     report = object;
     const problems = findShortfalls(report);

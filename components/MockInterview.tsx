@@ -7,6 +7,7 @@ import {
   finishInterviewAction,
 } from "@/app/dashboard/interview/actions";
 import { LoadingOverlay } from "@/components/LoadingScreen";
+import { useVoiceInput } from "@/components/useVoiceInput";
 import { MAX_ANSWER_CHARS, type TurnKind } from "@/lib/mock-interview";
 
 export type ChatMessage = {
@@ -14,31 +15,6 @@ export type ChatMessage = {
   content: string;
   kind?: TurnKind;
 };
-
-// Minimal Web Speech API typings; lib.dom doesn't ship SpeechRecognition.
-type RecognitionResult = { isFinal: boolean; 0: { transcript: string } };
-type RecognitionEvent = { resultIndex: number; results: ArrayLike<RecognitionResult> };
-type RecognitionErrorEvent = { error: string };
-type Recognition = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  onresult: ((event: RecognitionEvent) => void) | null;
-  onerror: ((event: RecognitionErrorEvent) => void) | null;
-  onend: (() => void) | null;
-  start(): void;
-  stop(): void;
-  abort(): void;
-};
-type RecognitionCtor = new () => Recognition;
-
-function recognitionCtor(): RecognitionCtor | null {
-  const w = window as unknown as {
-    SpeechRecognition?: RecognitionCtor;
-    webkitSpeechRecognition?: RecognitionCtor;
-  };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
-}
 
 const READ_ALOUD_KEY = "mock-interview:read-aloud";
 
@@ -62,14 +38,18 @@ export default function MockInterview({
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
 
-  // null until mounted, so server and client render the same markup.
-  const [micSupported, setMicSupported] = useState<boolean | null>(null);
   const [ttsSupported, setTtsSupported] = useState(false);
-  const [listening, setListening] = useState(false);
   const [readAloud, setReadAloud] = useState(false);
 
+  // Text typed before the mic started; voice text is appended after it.
+  const voiceBaseRef = useRef("");
+  const voice = useVoiceInput({
+    onTranscript: (text) =>
+      setAnswer(`${voiceBaseRef.current} ${text}`.trim().slice(0, MAX_ANSWER_CHARS)),
+    onError: setError,
+  });
+
   const readAloudRef = useRef(false);
-  const recognitionRef = useRef<Recognition | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoFinishStarted = useRef(false);
@@ -79,9 +59,9 @@ export default function MockInterview({
   const answered = messages.filter((m) => m.role === "candidate").length;
   const asked = messages.filter((m) => m.role === "interviewer" && m.kind === "question").length;
   const busy = sending || finishing;
+  const voiceBusy = voice.active || voice.pending > 0;
 
   useEffect(() => {
-    setMicSupported(recognitionCtor() !== null);
     setTtsSupported("speechSynthesis" in window);
     try {
       const stored = window.localStorage.getItem(READ_ALOUD_KEY) === "1";
@@ -91,7 +71,6 @@ export default function MockInterview({
       // Storage blocked (private mode); default off.
     }
     return () => {
-      recognitionRef.current?.abort();
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     };
   }, []);
@@ -135,59 +114,11 @@ export default function MockInterview({
     else if (last?.role === "interviewer") speak(last.content);
   }
 
-  function stopListening() {
-    recognitionRef.current?.stop();
-  }
-
-  function toggleListening() {
-    if (listening) {
-      stopListening();
-      return;
-    }
-    const Ctor = recognitionCtor();
-    if (!Ctor) return;
-
-    // Otherwise the mic transcribes the interviewer's voice.
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-
-    const recognition = new Ctor();
-    recognition.lang = navigator.language || "en-US";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    const base = answer.trim() ? `${answer.trim()} ` : "";
-    let finalText = "";
-
-    recognition.onresult = (event) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) finalText += `${result[0].transcript.trim()} `;
-        else interim += result[0].transcript;
-      }
-      setAnswer((base + finalText + interim).slice(0, MAX_ANSWER_CHARS));
-    };
-    recognition.onerror = (event) => {
-      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-        setError("Microphone access is blocked. Allow it in your browser's site settings, or type instead.");
-      } else if (event.error !== "no-speech" && event.error !== "aborted") {
-        setError("Voice input stopped unexpectedly. Try again, or type your answer.");
-      }
-    };
-    recognition.onend = () => {
-      setListening(false);
-      recognitionRef.current = null;
-      setAnswer((current) => current.trim());
-    };
-
-    try {
-      recognition.start();
-      recognitionRef.current = recognition;
-      setListening(true);
-      setError(null);
-    } catch {
-      setError("Could not start the microphone. Try again, or type your answer.");
-    }
+  function toggleVoice() {
+    if (voice.active) return voice.stop();
+    voiceBaseRef.current = answer.trim();
+    setError(null);
+    voice.start();
   }
 
   async function send() {
@@ -198,7 +129,7 @@ export default function MockInterview({
       return;
     }
 
-    stopListening();
+    voice.discard();
     setError(null);
     setSending(true);
     setAnswer("");
@@ -231,7 +162,7 @@ export default function MockInterview({
   }
 
   async function finish() {
-    stopListening();
+    voice.discard();
     setError(null);
     setFinishing(true);
     try {
@@ -380,8 +311,9 @@ export default function MockInterview({
             rows={5}
             maxLength={MAX_ANSWER_CHARS}
             disabled={busy}
+            readOnly={voice.active}
             aria-describedby="interview-answer-hint"
-            placeholder={listening ? "Listening… speak your answer." : "Answer as you would out loud."}
+            placeholder={voice.active ? "Listening… start speaking." : "Answer as you would out loud, or press Speak."}
             onChange={(event) => setAnswer(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
@@ -392,9 +324,13 @@ export default function MockInterview({
             className="w-full bg-surface-container-lowest border border-outline-variant/60 focus:border-primary focus:outline-none rounded-xl p-4 text-body-md text-on-surface placeholder:text-on-surface-variant/40 resize-y transition-colors disabled:opacity-60"
           />
           <p id="interview-answer-hint" className="text-body-sm text-on-surface-variant/60">
-            {micSupported === false
-              ? "Voice input isn't supported in this browser — try Chrome or Edge, or type your answer. "
-              : ""}
+            {voice.supported === false
+              ? "This browser can't record audio — type your answer instead. "
+              : voice.active && voice.mode === "phrases"
+                ? "Text appears after each short pause. "
+                : voice.active
+                  ? "Press Stop when you're done, then edit if needed. "
+                  : ""}
             Ctrl+Enter (⌘+Enter on Mac) to send.
           </p>
 
@@ -405,26 +341,32 @@ export default function MockInterview({
           )}
 
           <div className="flex items-center justify-between gap-3">
-            {micSupported !== false ? (
+            {voice.supported !== false ? (
               <button
                 type="button"
-                onClick={toggleListening}
-                disabled={busy || micSupported === null}
-                aria-pressed={listening}
-                aria-label={listening ? "Stop voice input" : "Answer out loud"}
+                onClick={toggleVoice}
+                disabled={busy || voice.supported === null || (!voice.active && voice.pending > 0)}
+                aria-pressed={voice.active}
+                aria-label={voice.active ? "Stop voice input" : "Answer out loud"}
                 className={`flex items-center gap-2 px-4 py-3 rounded-lg border text-body-sm transition-colors disabled:opacity-40 ${
-                  listening
+                  voice.active
                     ? "border-error text-error bg-error/10"
                     : "border-outline-variant/60 text-on-surface-variant hover:text-on-surface hover:border-primary/60"
                 }`}
               >
                 <span
                   aria-hidden
-                  className={`material-symbols-outlined text-[20px] ${listening ? "animate-pulse" : ""}`}
+                  className={`material-symbols-outlined text-[20px] ${voice.active ? "animate-pulse" : ""}`}
                 >
-                  {listening ? "stop" : "mic"}
+                  {voice.active ? "stop" : voice.pending ? "hourglass_top" : "mic"}
                 </span>
-                <span>{listening ? "Stop" : "Speak"}</span>
+                <span>
+                  {voice.active
+                    ? `Stop · ${formatSeconds(voice.seconds)} / ${formatSeconds(voice.maxSeconds)}`
+                    : voice.pending
+                      ? "Finishing…"
+                      : "Speak"}
+                </span>
               </button>
             ) : (
               <span />
@@ -432,7 +374,7 @@ export default function MockInterview({
             <button
               type="button"
               onClick={() => void send()}
-              disabled={busy || !answer.trim()}
+              disabled={busy || voiceBusy || !answer.trim()}
               className="flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-on-primary font-semibold text-body-md hover:bg-primary-fixed disabled:opacity-60 transition-colors"
             >
               {sending ? "Sending…" : "Send"}
@@ -471,4 +413,8 @@ function Bubble({ message }: { message: ChatMessage }) {
       <p className="text-body-md whitespace-pre-wrap break-words">{message.content}</p>
     </div>
   );
+}
+
+function formatSeconds(total: number) {
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }

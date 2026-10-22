@@ -16,6 +16,16 @@ function groq(): Groq {
   return client;
 }
 
+/** Speech to text with Groq Whisper. The file name's extension tells Groq the format. */
+export async function transcribeAudio(file: File): Promise<string> {
+  const result = await groq().audio.transcriptions.create({
+    file,
+    model: "whisper-large-v3-turbo",
+    language: "en",
+  });
+  return result.text.trim();
+}
+
 export type Message = { role: "system" | "user" | "assistant"; content: string };
 
 /** A single prompt or a full message history, never both. */
@@ -109,37 +119,60 @@ export async function generateStructuredRaw<T>(
     },
   };
 
-  let content: string;
-  try {
-    const completion = await groq().chat.completions.create(request);
-    content = completion.choices[0]?.message?.content ?? "";
-  } catch (error) {
-    const salvaged = failedGeneration(error);
-    if (!salvaged) throw error;
-    console.warn("Groq rejected its own generation; repairing it locally.");
-    content = salvaged;
-  }
-  if (!content) throw new Error("The model returned an empty response.");
+  // Bad output (unparseable or off-schema) gets one fresh retry; API errors don't.
+  let lastProblem = "";
+  for (let attempt = 1; attempt <= MAX_OUTPUT_ATTEMPTS; attempt++) {
+    let content: string;
+    try {
+      const completion = await groq().chat.completions.create(request);
+      content = completion.choices[0]?.message?.content ?? "";
+    } catch (error) {
+      const salvaged = failedGeneration(error);
+      if (!salvaged) throw error;
+      console.warn("Groq rejected its own generation; repairing it locally.");
+      content = salvaged;
+    }
 
-  let raw: unknown;
-  try {
-    raw = JSON.parse(content);
-  } catch {
-    throw new Error("The model returned invalid JSON.");
-  }
+    const raw = parseModelJson(content);
+    if (raw === undefined) {
+      lastProblem = content ? "The model returned invalid JSON." : "The model returned an empty response.";
+      console.warn(`${lastProblem} Attempt ${attempt} of ${MAX_OUTPUT_ATTEMPTS}.`);
+      continue;
+    }
 
-  const parsed = schema.safeParse(backfillArrays(raw, jsonSchema));
-  if (!parsed.success) {
-    console.error(
-      "Schema validation failed:",
-      JSON.stringify(z.treeifyError(parsed.error), null, 2)
-    );
+    const parsed = schema.safeParse(backfillArrays(raw, jsonSchema));
+    if (parsed.success) return { object: parsed.data, content };
+
+    console.error("Schema validation failed:", JSON.stringify(z.treeifyError(parsed.error), null, 2));
     const where = parsed.error.issues
       .slice(0, 3)
       .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
       .join("; ");
-    throw new Error(`The model returned an invalid schema — ${where}`);
+    lastProblem = `The model returned an invalid schema — ${where}`;
   }
 
-  return { object: parsed.data, content };
+  throw new Error(lastProblem);
+}
+
+const MAX_OUTPUT_ATTEMPTS = 2;
+
+/**
+ * JSON.parse that also accepts the wrappers models add: ```json fences or
+ * text around the object. Returns undefined when nothing parses.
+ */
+export function parseModelJson(text: string): unknown {
+  const trimmed = text.trim();
+  if (!trimmed) return undefined;
+  const candidates = [
+    trimmed,
+    trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, ""),
+    trimmed.slice(trimmed.indexOf("{"), trimmed.lastIndexOf("}") + 1),
+  ];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      return JSON.parse(candidate);
+    } catch {}
+  }
+  return undefined;
 }
