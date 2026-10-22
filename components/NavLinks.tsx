@@ -54,7 +54,7 @@ export default function NavLinks() {
   }, [pathname]);
 
   return (
-    <div className="hidden md:flex items-center gap-6">
+    <div className="hidden lg:flex items-center gap-6 whitespace-nowrap">
       {LINKS.map((link) => {
         const isActive = pathname === "/" && active === link.section;
         return (

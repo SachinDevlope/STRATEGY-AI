@@ -262,3 +262,23 @@
     stroke-dashoffset: var(--ring-offset);
   }
 }
+
+/* Hero preview voice waveform */
+@keyframes hero-wave {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.hero-wave-bar {
+  transform-origin: center;
+  animation: hero-wave 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-wave-bar {
+    animation: none;
+  }
+}
