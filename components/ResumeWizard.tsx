@@ -19,6 +19,15 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 
 type Finished = { resumeId: string; tailoring: Tailoring | null };
 
+// Resume at the saved step, but never past an unanswered required question —
+// clicking through empty steps shouldn't land the user on the last one.
+function resumeStep(answers: Answers, savedStep: number): number {
+  const saved = Math.min(Math.max(savedStep, 0), LAST_STEP);
+  const missing = missingRequired(answers)[0];
+  if (!missing) return saved;
+  return Math.min(saved, QUESTIONS.findIndex((q) => q.id === missing));
+}
+
 export default function ResumeWizard({
   initialAnswers,
   initialStep,
@@ -30,7 +39,7 @@ export default function ResumeWizard({
 }) {
   const [answers, setAnswers] = useState<Answers>(initialAnswers);
   const [jobDescription, setJobDescription] = useState(initialJobDescription);
-  const [step, setStep] = useState(Math.min(Math.max(initialStep, 0), LAST_STEP));
+  const [step, setStep] = useState(() => resumeStep(initialAnswers, initialStep));
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [finished, setFinished] = useState<Finished | null>(null);

@@ -73,6 +73,10 @@ export async function insertResume(
   return result.insertedId.toHexString();
 }
 
+export async function listResumes(userId: string, limit = 5): Promise<StoredResume[]> {
+  return (await resumes()).find({ userId }).sort({ createdAt: -1 }).limit(limit).toArray();
+}
+
 // Filter by userId too, so a guessed id can't return someone else's resume.
 export async function getResume(userId: string, id: string): Promise<StoredResume | null> {
   if (!ObjectId.isValid(id)) return null;

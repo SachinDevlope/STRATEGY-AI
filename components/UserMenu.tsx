@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { signOutAction } from "@/app/actions/auth";
 import UserBadge from "@/components/UserBadge";
-import { SECTION_LINKS } from "@/lib/nav";
+import { APP_LINKS } from "@/lib/nav";
 
 /** Signed-in nav: all links live behind the profile button. */
 export default function UserMenu({
@@ -80,13 +80,8 @@ export default function UserMenu({
 
           <MenuLink href="/dashboard" icon="space_dashboard" label="Dashboard" />
 
-          {SECTION_LINKS.map((link) => (
-            <MenuLink
-              key={link.href}
-              href={link.href}
-              icon={ICONS[link.section]}
-              label={link.label}
-            />
+          {APP_LINKS.map((link) => (
+            <MenuLink key={link.href} href={link.href} icon={link.icon} label={link.label} />
           ))}
 
           <form action={signOutAction} className="border-t border-outline-variant/30 mt-1.5 pt-1.5">
@@ -105,12 +100,6 @@ export default function UserMenu({
     </div>
   );
 }
-
-const ICONS: Record<string, string> = {
-  resume: "description",
-  features: "neurology",
-  star: "auto_awesome",
-};
 
 function MenuLink({
   href,

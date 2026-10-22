@@ -8,6 +8,13 @@ AI career toolkit built on Next.js 15 (App Router):
 - **Resume analyzer:** upload a PDF resume (or paste text) with a job
   description. You get a match score, skill gaps, likely interview questions,
   a day-wise prep plan and concrete resume fixes.
+- **Mock interview:** an AI interviewer asks role- and level-specific
+  questions one at a time, follows up on vague answers, and ends with a
+  scorecard. Answer by voice (browser speech recognition) or text.
+- **STAR story builder:** turns rough notes into a Situation / Task / Action /
+  Result answer with a spoken script, score and missing details.
+- **Dashboard:** recent resumes (with PDF download), analyses, interviews and
+  stories in one place.
 - **Auth:** Google sign-in or email + password (Auth.js v5).
 
 ## Tech stack
@@ -99,6 +106,22 @@ saved in `job_descriptions` so you can reuse them.
   keywords.
 - `/api/resume/[id]/pdf` renders the A4 PDF when it's requested.
 
+### Mock interview
+- `/dashboard/interview` sets up role, level, type and question count
+  (optionally a saved job description).
+- `answerInterviewAction` saves each answer together with the next
+  interviewer message. The code enforces the question count and at most one
+  follow-up per question.
+- `finishInterviewAction` builds the scorecard. Everything is stored in
+  `mock_interviews`.
+- Voice uses the browser's Web Speech API (Chrome/Edge); other browsers fall
+  back to text.
+
+### STAR builder
+- `buildStarStoryAction` structures the notes with Groq and saves the result
+  in `star_stories`. Stories can be copied, rebuilt with more detail, or
+  deleted.
+
 ## Security
 
 - Every database query and Blob path is scoped to the signed-in user's id.
@@ -108,7 +131,8 @@ saved in `job_descriptions` so you can reuse them.
   that password and ends any open password sessions. This stops someone from
   registering your email first and keeping access.
 - Login, signup and AI generation are rate-limited (`lib/rate-limit.ts`,
-  `rate_limits` collection with a TTL index).
+  `rate_limits` collection with a TTL index). Interview turns have their own,
+  larger budget.
 - Users only see error messages written for them (`lib/errors.ts`); internal
   errors are logged on the server.
 
@@ -124,6 +148,8 @@ components/              landing sections and UI (wizard, analyzer, loaders)
 lib/
   ai.ts                  Groq client + schema-validated generation
   interview-report.ts    analysis prompt, repair round, plan cleanup
+  mock-interview*.ts     interview rules, prompts, store
+  star*.ts               STAR schema, prompt, store
   analysis.ts            analysis schema and upload limits
   resume.ts              wizard questions and resume schema
   *-store.ts             MongoDB access per collection

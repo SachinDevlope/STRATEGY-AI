@@ -56,7 +56,7 @@ export default function StarSection() {
             about a time when...&quot; question.
           </p>
           <Link
-            href="/signup"
+            href="/dashboard/star"
             className="mt-4 bg-primary-container text-on-primary-container font-label-caps text-label-caps uppercase py-4 px-8 rounded btn-glow transition-all duration-300 inline-flex items-center justify-center gap-2 w-full sm:w-fit"
           >
             Try the Story Builder

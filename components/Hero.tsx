@@ -50,7 +50,7 @@ export default function Hero() {
             </span>
           </Link>
           <Link
-            href="/signup"
+            href="/dashboard/interview"
             className="border border-primary-container text-primary-fixed hover:bg-primary-container/10 font-label-caps text-label-caps uppercase py-4 px-8 rounded text-center transition-colors w-full sm:w-auto flex items-center justify-center gap-2"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[16px]">mic</span>

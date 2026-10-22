@@ -80,7 +80,7 @@ export const CORE_FEATURES: Omit<Feature, "span">[] = [
   {
     icon: "description",
     title: "AI Resume Builder",
-    body: "Builds a professional ATS resume from 8 quick questions. Includes 12+ ATS-friendly templates focusing on campus freshers and professional formats. Clean A4 PDF, ATS-parseable.",
+    body: "Builds a professional ATS resume from 8 quick questions. Single-column, clean A4 PDF that applicant tracking systems parse reliably.",
   },
   {
     icon: "auto_fix_high",
@@ -90,7 +90,7 @@ export const CORE_FEATURES: Omit<Feature, "span">[] = [
   {
     icon: "record_voice_over",
     title: "Live AI Mock Interview",
-    body: "Experience a voice-based interview with real-time follow-ups and a detailed scorecard. Questions are experience-calibrated to match your career level.",
+    body: "Answer by voice or text, get real-time follow-ups and a detailed scorecard. Questions are experience-calibrated to match your career level.",
   },
 ];
 
